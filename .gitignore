@@ -1,0 +1,6 @@
+*.zip
+MSP430_USB_API/examples/
+msp430/*.out
+msp430/main04.c
+tnc1101/tnc1101
+tnc1101/*.o

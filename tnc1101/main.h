@@ -13,6 +13,7 @@ typedef enum block_type_e
     BLOCK_TYPE_DATA_ACK,
     BLOCK_TYPE_COMMAND,
     BLOCK_TYPE_COMMAND_ACK,
+    BLOCK_TYPE_RADIO_STATUS,
     BLOCK_TYPE_ECHO_TEST,
     BLOCK_TYPE_ERROR
 } block_type_t;

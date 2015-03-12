@@ -58,6 +58,18 @@
  */
 #include "hal.h"
 #include "util.h"
+#include "radio.h"
+
+typedef enum block_type_e
+{
+    BLOCK_TYPE_DATA = 0,
+    BLOCK_TYPE_DATA_ACK,
+    BLOCK_TYPE_COMMAND,
+    BLOCK_TYPE_COMMAND_ACK,
+    BLOCK_TYPE_RADIO_STATUS,    
+    BLOCK_TYPE_ECHO_TEST,
+    BLOCK_TYPE_ERROR
+} block_type_t;
 
 // Global flags set by events
 volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler to 
@@ -70,11 +82,55 @@ char nl[2] = "\n";
 uint16_t count;                    
 char outString[65];  // Holds outgoing strings to be sent
 
+// ================================================================================================
 
-/*----------------------------------------------------------------------------+
- | Main Routine                                                                |
- +----------------------------------------------------------------------------*/
+static uint8_t process_usb_block(uint16_t count, uint8_t *block);
+
+// ================================================================================================
+
+// ------------------------------------------------------------------------------------------------
+// Process an incoming USB block
+uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
+// ------------------------------------------------------------------------------------------------
+{
+    uint8_t byte_count = dataBuffer[1];
+    char str_byte[4];
+
+    if (dataBuffer[0] == (uint8_t) BLOCK_TYPE_ECHO_TEST)
+    {
+        strcpy(outString, "xxEcho Command - Byte count: ");
+        print_byte_decimal(byte_count, str_byte);
+        strcat(outString, str_byte);                        
+
+        // Count has the number of bytes received into dataBuffer
+        // Echo back to the host.
+        if (cdcSendDataInBackground((uint8_t *) outString, strlen(outString), CDC0_INTFNUM, 1))
+        {
+            // Exit if something went wrong.
+            return 1;
+        }
+    }
+    else if (dataBuffer[0] == (uint8_t) BLOCK_TYPE_RADIO_STATUS)
+    {
+        get_radio_status(&dataBuffer[2]);
+        dataBuffer[1] = TI_CCxxx0_NUM_STATUS;
+
+        if (cdcSendDataInBackground((uint8_t *) dataBuffer, TI_CCxxx0_NUM_STATUS + 2, CDC0_INTFNUM, 1))
+        {
+            // Exit if something went wrong.
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+// ================================================================================================
+
+// ------------------------------------------------------------------------------------------------
+// Main routine
 void main (void)
+// ------------------------------------------------------------------------------------------------
 {
     WDT_A_hold(WDT_A_BASE); // Stop watchdog timer
 
@@ -93,11 +149,12 @@ void main (void)
 
     while (1)
     {
-        uint8_t ReceiveError = 0, SendError = 0;
+        //uint8_t ReceiveError = 0, SendError = 0;
+        uint8_t  retVal = 0;
         uint16_t count;
-        uint8_t byte_command;
-        uint8_t byte_count;
-        char str_byte[4];
+        //uint8_t byte_command;
+        //uint8_t byte_count;
+        //char str_byte[4];
         
         // Check the USB state and directly main loop accordingly
         switch (USB_connectionState())
@@ -128,6 +185,13 @@ void main (void)
 
                     if (count > 2)
                     {
+                        retVal = process_usb_block(count, (uint8_t*) dataBuffer);
+
+                        if (retVal)
+                        {
+                            break;
+                        }
+                        /*
                         byte_command = dataBuffer[0];
                         byte_count = dataBuffer[1];
 
@@ -146,6 +210,7 @@ void main (void)
                             SendError = 0x01;
                             break;
                         }
+                        */
                     }
                 }
 
@@ -171,7 +236,9 @@ void main (void)
             default:;
         }
 
-        if (ReceiveError || SendError){
+        //if (ReceiveError || SendError){
+        if (retVal)
+        {
             // TO DO: User can place code here to handle error
         }
     }  //while(1)

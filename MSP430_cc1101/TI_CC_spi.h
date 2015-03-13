@@ -49,6 +49,8 @@
 // Comments: Initial Release Version
 //------------------------------------------------------------------------------
 
+#define UCLK_DIV 0x0A
+
 void TI_CC_SPISetup(void);
 void TI_CC_PowerupResetCCxxxx(void);
 void TI_CC_SPIWriteReg(char, char);

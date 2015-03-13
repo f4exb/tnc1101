@@ -88,13 +88,13 @@ USB_config/UsbIsr.c \
 ../MSP430_USB_API/driverlib/MSP430F5xx_6xx/deprecated/ucs.c \
 
 $(PROG_NAME): $(SRC_FILES) TI_CC_spi.o radio.o 
-	$(CC) $(CFLAGS) -I../cc1101 $(LFLAGS) $? -o $(PROG_NAME).out
+	$(CC) $(CFLAGS) -I../MSP430_cc1101 $(LFLAGS) $? -o $(PROG_NAME).out
 
-TI_CC_spi.o: ../cc1101/TI_CC_spi.c
-	$(CC) $(CFLAGS) -I../cc1101 -c -o TI_CC_spi.o ../cc1101/TI_CC_spi.c
+TI_CC_spi.o: ../MSP430_cc1101/TI_CC_spi.c ../MSP430_cc1101/TI_CC_spi.h ../MSP430_cc1101/TI_CC_msp430.h ../MSP430_cc1101/TI_CC_hardware_board.h ../MSP430_cc1101/TI_CC_CC1100-CC2500.h
+	$(CC) $(CFLAGS) -I../MSP430_cc1101 -c -o TI_CC_spi.o ../MSP430_cc1101/TI_CC_spi.c
 
 radio.o: radio.c
-	$(CC) $(CFLAGS) -I../cc1101 -c -o radio.o radio.c
+	$(CC) $(CFLAGS) -I../MSP430_cc1101 -c -o radio.o radio.c
 
 debug: $(PROG_NAME)
 	$(GDB) $(PROG_NAME).out

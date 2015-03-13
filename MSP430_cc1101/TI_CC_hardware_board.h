@@ -80,7 +80,7 @@
 
 #define TI_CC_CSn_PxOUT         P2OUT
 #define TI_CC_CSn_PxDIR         P2DIR
-#define TI_CC_CSn_PIN           BIT7
+#define TI_CC_CSn_PIN           BIT2
 
 
 //----------------------------------------------------------------------------

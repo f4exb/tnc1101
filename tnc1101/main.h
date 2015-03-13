@@ -13,7 +13,7 @@ typedef enum block_type_e
     BLOCK_TYPE_DATA_ACK,
     BLOCK_TYPE_COMMAND,
     BLOCK_TYPE_COMMAND_ACK,
-    BLOCK_TYPE_RADIO_STATUS,
+    BLOCK_TYPE_RADIO_STATUS,    
     BLOCK_TYPE_ECHO_TEST,
     BLOCK_TYPE_ERROR
 } block_type_t;
@@ -21,8 +21,7 @@ typedef enum block_type_e
 typedef enum tnc_mode_e {
     TNC_KISS = 0,
     TNC_TEST_USB_ECHO,
-    TNC_TEST_USB_PACKET,
-    TNC_TEST_USB_SEND,
+    TNC_RADIO_STATUS,
     NUM_TNC
 } tnc_mode_t;
 

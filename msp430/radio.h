@@ -20,6 +20,7 @@
 
 #define RADIO_BUFSIZE  (TI_CCxxx0_PACKET_SIZE+2)
 
+void init_radio();
 void get_radio_status(uint8_t *status_regs);
 
 #endif // _RADIO_H_

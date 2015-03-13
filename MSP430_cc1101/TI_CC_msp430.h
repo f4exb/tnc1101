@@ -114,6 +114,16 @@
 #define TI_CC_SPI_USCIA3_UCLK   BIT0
 #define TI_CC_SPI_USCIA3_SIMO   BIT4
 
+// USCIB0 for F5529
+// Use this setting for 5xx Exp Board
+#define TI_CC_SPI_USCIB0_PxSEL  P3SEL
+#define TI_CC_SPI_USCIB0_PxDIR  P3DIR
+#define TI_CC_SPI_USCIB0_PxIN   P3IN
+#define TI_CC_SPI_USCIB0_SIMO   BIT0
+#define TI_CC_SPI_USCIB0_SOMI   BIT1
+#define TI_CC_SPI_USCIB0_UCLK   BIT2
+
+/*
 // USCIB0 for F543x
 // Use this setting for 5xx Exp Board
 #define TI_CC_SPI_USCIB0_PxSEL  P3SEL
@@ -130,7 +140,7 @@
 #define TI_CC_SPI_USCIB0_SIMO   BIT1
 #define TI_CC_SPI_USCIB0_SOMI   BIT2
 #define TI_CC_SPI_USCIB0_UCLK   BIT3
-
+*/
 // USCIB1 for F543x
 #define TI_CC_SPI_USCIB1_PxSEL  P5SEL
 #define TI_CC_SPI_USCIB1_PxDIR  P5DIR

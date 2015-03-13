@@ -114,6 +114,7 @@ extern uint32_t packets_received;
 extern uint32_t blocks_sent;
 extern uint32_t blocks_received;
 
+/*
 void     init_radio_parms(radio_parms_t *radio_parms, arguments_t *arguments);
 int      init_radio(radio_parms_t *radio_parms,  spi_parms_t *spi_parms, arguments_t *arguments);
 void     init_radio_int(spi_parms_t *spi_parms, arguments_t *arguments);
@@ -124,8 +125,9 @@ void     radio_turn_idle(spi_parms_t *spi_parms);
 void     radio_turn_rx(spi_parms_t *spi_parms);
 
 void     print_radio_parms(radio_parms_t *radio_parms);
-int      print_radio_status(spi_parms_t *spi_parms);
-
+*/
+void     print_radio_status(arguments_t *arguments);
+/*
 int      radio_set_packet_length(spi_parms_t *spi_parms, uint8_t pkt_len);
 uint8_t  radio_get_packet_length(spi_parms_t *spi_parms);
 float    radio_get_rate(radio_parms_t *radio_parms);
@@ -135,5 +137,5 @@ void     radio_wait_free();
 
 void     radio_send_packet(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *packet, uint32_t size);
 uint32_t radio_receive_packet(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *packet);
-
+*/
 #endif

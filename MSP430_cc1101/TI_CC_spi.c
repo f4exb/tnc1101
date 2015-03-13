@@ -113,7 +113,7 @@ void TI_CC_Wait(unsigned int cycles)
     cycles = cycles - 6;                    // 6 cycles consumed each iteration
 }
 
-//******************************************************************************
+// === USART0 ==================================================================
 // If USART0 is used
 //******************************************************************************
 #if TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USART0
@@ -127,7 +127,7 @@ void TI_CC_SPISetup(void)
   UCTL0 = SWRST;                            // Disable USART state machine
   UCTL0 |= CHAR + SYNC + MM;                // 8-bit SPI Master **SWRST**
   UTCTL0 |= CKPH + SSEL1 + SSEL0 + STC;     // SMCLK, 3-pin mode
-  UBR00 = 0x02;                             // UCLK/2
+  UBR00 = UCLK_DIV;                         // UCLK/2
   UBR10 = 0x00;                             // 0
   UMCTL0 = 0x00;                            // No modulation
   TI_CC_SPI_USART0_PxSEL |= TI_CC_SPI_USART0_SIMO
@@ -252,7 +252,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 }
 
 // END USART0
-//******************************************************************************
+// === USART1 ==================================================================
 // If USART1 is used
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USART1
@@ -266,7 +266,7 @@ void TI_CC_SPISetup(void)
   UCTL1 = SWRST;                            // Disable USART state machine
   UCTL1 |= CHAR + SYNC + MM;                // 8-bit SPI Master **SWRST**
   UTCTL1 |= CKPH + SSEL1 + SSEL0 + STC;     // SMCLK, 3-pin mode
-  UBR01 = 0x02;                             // UCLK/2
+  UBR01 = UCLK_DIV;                         // UCLK/2
   UBR11 = 0x00;                             // 0
   UMCTL1 = 0x00;                            // No modulation
   TI_CC_SPI_USART1_PxSEL |= TI_CC_SPI_USART1_SIMO
@@ -397,6 +397,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIA0
 
+// === 5xx USCI_A0 =============================================================
 //******************************************************************************
 // Support for 5xx USCI_A0
 //******************************************************************************
@@ -409,7 +410,7 @@ void TI_CC_SPISetup(void)
   UCA0CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCA0CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCA0CTL1 |= UCSSEL_2;                     // SMCLK
-  UCA0BR0 = 0x02;                           // UCLK/2
+  UCA0BR0 = UCLK_DIV;                       // UCLK/2
   UCA0BR1 = 0;
   UCA0MCTL = 0;
   TI_CC_SPI_USCIA0_PxSEL |= TI_CC_SPI_USCIA0_SIMO
@@ -533,6 +534,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 // End of support for 5xx USCI_A0
 
 #else
+// === USCI_A0 ================================================================
 void TI_CC_SPISetup(void)
 {
   TI_CC_CSn_PxOUT |= TI_CC_CSn_PIN;
@@ -541,7 +543,7 @@ void TI_CC_SPISetup(void)
   UCA0CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCA0CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCA0CTL1 |= UCSSEL_2;                     // SMCLK
-  UCA0BR0 = 0x02;                           // UCLK/2
+  UCA0BR0 = UCLK_DIV;                       // UCLK/2
   UCA0BR1 = 0;
   UCA0MCTL = 0;
   TI_CC_SPI_USCIA0_PxSEL |= TI_CC_SPI_USCIA0_SIMO
@@ -670,7 +672,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIA1
 
-//******************************************************************************
+// === 5xx USCI_A1 =============================================================
 // Support for 5xx USCI_A1
 //******************************************************************************
 #ifdef TI_5xx
@@ -682,7 +684,7 @@ void TI_CC_SPISetup(void)
   UCA1CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCA1CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCA1CTL1 |= UCSSEL_2;                     // SMCLK
-  UCA1BR0 = 0x02;                           // UCLK/2
+  UCA1BR0 = UCLK_DIV;                       // UCLK/2
   UCA1BR1 = 0;
   UCA1MCTL = 0;
   TI_CC_SPI_USCIA1_PxSEL |= TI_CC_SPI_USCIA1_SIMO
@@ -807,6 +809,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 // End of support for 5xx USCI_A1
 
 #else
+// === USCI_A1 =================================================================
 void TI_CC_SPISetup(void)
 {
   TI_CC_CSn_PxOUT |= TI_CC_CSn_PIN;
@@ -815,7 +818,7 @@ void TI_CC_SPISetup(void)
   UCA1CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCA1CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCA1CTL1 |= UCSSEL_2;                     // SMCLK
-  UCA1BR0 = 0x02;                           // UCLK/2
+  UCA1BR0 = UCLK_DIV;                       // UCLK/2
   UCA1BR1 = 0;
   UCA1MCTL = 0;
   TI_CC_SPI_USCIA1_PxSEL |= TI_CC_SPI_USCIA1_SIMO
@@ -946,7 +949,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIA2
 
-//******************************************************************************
+// === 5xx USCI_A2 =============================================================
 // Support for 5xx USCI_A2
 //******************************************************************************
 #ifdef TI_5xx
@@ -958,7 +961,7 @@ void TI_CC_SPISetup(void)
   UCA2CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCA2CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCA2CTL1 |= UCSSEL_2;                     // SMCLK
-  UCA2BR0 = 0x02;                           // UCLK/2
+  UCA2BR0 = UCLK_DIV;                       // UCLK/2
   UCA2BR1 = 0;
   TI_CC_SPI_USCIA2_PxSEL |= TI_CC_SPI_USCIA2_SOMI
                          | TI_CC_SPI_USCIA2_UCLK
@@ -1089,7 +1092,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIA3
 
-//******************************************************************************
+// === 5xx USCI_A3 =============================================================
 // Support for 5xx USCI_A3
 //******************************************************************************
 #ifdef TI_5xx
@@ -1101,7 +1104,7 @@ void TI_CC_SPISetup(void)
   UCA3CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCA3CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCA3CTL1 |= UCSSEL_2;                     // SMCLK
-  UCA3BR0 = 0x02;                           // UCLK/2
+  UCA3BR0 = UCLK_DIV;                       // UCLK/2
   UCA3BR1 = 0;
   TI_CC_SPI_USCIA3_PxSEL |= TI_CC_SPI_USCIA3_SOMI
                          | TI_CC_SPI_USCIA3_UCLK
@@ -1234,6 +1237,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIB0
 
+// === 5xx USCI_B0 =============================================================
 //******************************************************************************
 // Support for 5xx USCI_B0
 //******************************************************************************
@@ -1246,7 +1250,7 @@ void TI_CC_SPISetup(void)
   UCB0CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCB0CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCB0CTL1 |= UCSSEL_2;                     // SMCLK
-  UCB0BR0 = 0x02;                           // UCLK/2
+  UCB0BR0 = UCLK_DIV;                       // UCLK/2
   UCB0BR1 = 0;
   TI_CC_SPI_USCIB0_PxSEL |= TI_CC_SPI_USCIB0_SIMO
                          | TI_CC_SPI_USCIB0_SOMI
@@ -1367,6 +1371,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 }
 
 #else
+// === USCI_B0 ==================================================================
 void TI_CC_SPISetup(void)
 {
   TI_CC_CSn_PxOUT |= TI_CC_CSn_PIN;
@@ -1375,13 +1380,14 @@ void TI_CC_SPISetup(void)
   UCB0CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCB0CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCB0CTL1 |= UCSSEL_2;                     // SMCLK
-  UCB0BR0 = 0x02;                           // UCLK/2
+  UCB0BR0 = UCLK_DIV;                       // UCLK/2
   UCB0BR1 = 0;
   TI_CC_SPI_USCIB0_PxSEL |= TI_CC_SPI_USCIB0_SIMO
                          | TI_CC_SPI_USCIB0_SOMI
                          | TI_CC_SPI_USCIB0_UCLK;
                                             // SPI option select
   TI_CC_SPI_USCIB0_PxDIR |= TI_CC_SPI_USCIB0_SIMO | TI_CC_SPI_USCIB0_UCLK;
+  TI_CC_SPI_USCIB0_PxDIR &= ~TI_CC_SPI_USCIB0_SOMI;
                                             // SPI TXD out direction
   UCB0CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
 }
@@ -1503,7 +1509,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIB1
 
-//******************************************************************************
+// === 5xx USCI_B1 =============================================================
 // Support for 5xx USCI_B1
 //******************************************************************************
 #ifdef TI_5xx
@@ -1515,7 +1521,7 @@ void TI_CC_SPISetup(void)
   UCB1CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCB1CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCB1CTL1 |= UCSSEL_2;                     // SMCLK
-  UCB1BR0 = 0x02;                           // UCLK/2
+  UCB1BR0 = UCLK_DIV;                       // UCLK/2
   UCB1BR1 = 0;
   TI_CC_SPI_USCIB1_PxSEL |= TI_CC_SPI_USCIB1_SOMI
                          | TI_CC_SPI_USCIB1_UCLK;
@@ -1639,6 +1645,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 // End of support for 5xx USCI_B1
 #else
 
+// === USCI_B1 =================================================================
 void TI_CC_SPISetup(void)
 {
   TI_CC_CSn_PxOUT |= TI_CC_CSn_PIN;
@@ -1647,7 +1654,7 @@ void TI_CC_SPISetup(void)
   UCB1CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCB1CTL0 |= UCMST+UCCKPL+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCB1CTL1 |= UCSSEL_2;                     // SMCLK
-  UCB1BR0 = 0x02;                           // UCLK/2
+  UCB1BR0 = UCLK_DIV;                       // UCLK/2
   UCB1BR1 = 0;
   TI_CC_SPI_USCIB1_PxSEL |= TI_CC_SPI_USCIB1_SIMO
                          | TI_CC_SPI_USCIB1_SOMI
@@ -1777,7 +1784,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIB2
 
-//******************************************************************************
+// === 5xx USCI_B2 =============================================================
 // Support for 5xx USCI_B2
 //******************************************************************************
 #ifdef TI_5xx
@@ -1789,7 +1796,7 @@ void TI_CC_SPISetup(void)
   UCB2CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCB2CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCB2CTL1 |= UCSSEL_2;                     // SMCLK
-  UCB2BR0 = 0x02;                           // UCLK/2
+  UCB2BR0 = UCLK_DIV;                       // UCLK/2
   UCB2BR1 = 0;
   TI_CC_SPI_USCIB2_PxSEL |= TI_CC_SPI_USCIB2_SOMI
                          | TI_CC_SPI_USCIB2_UCLK
@@ -1921,7 +1928,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USCIB3
 
-//******************************************************************************
+// === 5xx USCI_B3 =============================================================
 // Support for 5xx USCI_B3
 //******************************************************************************
 #ifdef TI_5xx
@@ -1933,7 +1940,7 @@ void TI_CC_SPISetup(void)
   UCB3CTL1 |= UCSWRST;                      // **Disable USCI state machine**
   UCB3CTL0 |= UCMST+UCCKPH+UCMSB+UCSYNC;    // 3-pin, 8-bit SPI master
   UCB3CTL1 |= UCSSEL_2;                     // SMCLK
-  UCB3BR0 = 0x02;                           // UCLK/2
+  UCB3BR0 = UCLK_DIV;                       // UCLK/2
   UCB3BR1 = 0;
   TI_CC_SPI_USCIB3_PxSEL |= TI_CC_SPI_USCIB3_SOMI
                          | TI_CC_SPI_USCIB3_UCLK
@@ -2057,7 +2064,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 #endif
 // End of support for USCI_B3
 
-//******************************************************************************
+// === USI =====================================================================
 // If USI is used
 //******************************************************************************
 #elif TI_CC_RF_SER_INTF == TI_CC_SER_INTF_USI
@@ -2190,6 +2197,7 @@ void TI_CC_PowerupResetCCxxxx(void)
 
 // End of USI
 
+// === BITBANG =================================================================
 //******************************************************************************
 // If Bit Bang is used
 //******************************************************************************

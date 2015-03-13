@@ -28,7 +28,7 @@ radio_parms_t radio_parameters;
 char *tnc_mode_names[] = {
     "KISS",
     "USB echo",
-    "USB packet"
+    "Radio status"
 };
 
 char *modulation_names[] = {
@@ -552,17 +552,12 @@ int main (int argc, char **argv)
         usb_test_echo(&arguments);
         return 0;
     }
-    else if (arguments.tnc_mode == TNC_TEST_USB_PACKET) // This one does not need any access to the radio
+    else if (arguments.tnc_mode == TNC_RADIO_STATUS) 
     {
-        usb_test_packet(&arguments);
+        print_radio_status(&arguments);
         return 0;
     }
-    else if (arguments.tnc_mode == TNC_TEST_USB_SEND) // This one does not need any access to the radio
-    {
-        usb_test_send(&arguments);
-        return 0;
-    }
-
+    
     /*
     init_radio_parms(&radio_parameters, &arguments);
     ret = init_radio(&radio_parameters, &spi_parameters, &arguments);

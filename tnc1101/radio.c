@@ -12,13 +12,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <wiringPi.h>
 
 #include "main.h"
 #include "util.h"
 #include "radio.h"
-#include "pi_cc_spi.h"
-#include "pi_cc_cc1100-cc2500.h"
+#include "serial.h"
 
 char *state_names[] = {
     "SLEEP",            // 00
@@ -83,170 +81,19 @@ uint32_t packets_sent;
 uint32_t packets_received;
 
 // === Static functions declarations ==============================================================
-
 static float    rssi_dbm(uint8_t rssi_dec);
 static uint32_t get_freq_word(uint32_t freq_xtal, uint32_t freq_hz);
 static uint8_t  get_mod_word(modulation_t modulation_code);
 static uint32_t get_if_word(uint32_t freq_xtal, uint32_t if_hz);
 static void     get_chanbw_words(float bw, radio_parms_t *radio_parms);
 static void     get_rate_words(arguments_t *arguments, radio_parms_t *radio_parms);
+/*
 static void     wait_for_state(spi_parms_t *spi_parms, ccxxx0_state_t state, uint32_t timeout);
 static void     print_received_packet(int verbose_min);
 static void     radio_send_block(spi_parms_t *spi_parms, uint8_t block_countdown);
 static uint8_t  radio_receive_block(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *block, uint32_t *size, uint8_t *crc);
 static uint8_t  crc_check(uint8_t *block);
-
-// === Interupt handlers ==========================================================================
-
-// ------------------------------------------------------------------------------------------------
-// Processes packets up to 255 bytes
-void int_packet(void)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t x_byte, *p_byte, int_line, rssi_dec, crc_lqi;
-    int i;
-
-    int_line = digitalRead(WPI_GDO0); // Sense interrupt line to determine if it was a raising or falling edge
-
-    if (p_radio_int_data->mode == RADIOMODE_RX)
-    {
-        if (int_line)
-        {
-            verbprintf(3, "GDO0 Rx rising edge (%d,%d)\n", 
-                p_radio_int_data->packet_receive, 
-                p_radio_int_data->packet_send);
-
-            p_radio_int_data->byte_index = 0;
-
-            if (p_radio_int_data->packet_config == PKTLEN_VARIABLE)
-            {
-                radio_wait_a_bit(2);
-
-                PI_CC_SPIReadReg(p_radio_int_data->spi_parms, PI_CCxxx0_RXFIFO, &x_byte);
-                p_radio_int_data->rx_buf[p_radio_int_data->byte_index++] = x_byte; // put back into resulting payoad
-                p_radio_int_data->rx_count = x_byte + 2; // Add RSSI + LQI/CRC bytes
-                p_radio_int_data->bytes_remaining = p_radio_int_data->rx_count;
-                p_radio_int_data->rx_count++; // Add count for the resulting total buffer length
-                
-                verbprintf(3, "%d bytes to read (variable)\n", p_radio_int_data->rx_count);                
-            }
-            else
-            {
-                //p_radio_int_data->rx_count = radio_get_packet_length(p_radio_int_data->spi_parms);
-                //p_radio_int_data->rx_count += 2; // Add RSSI + LQI/CRC bytes
-                p_radio_int_data->rx_count = p_radio_int_data->packet_length + 2;
-                p_radio_int_data->bytes_remaining = p_radio_int_data->rx_count;
-
-                verbprintf(3, "%d bytes to read (fixed)\n", p_radio_int_data->rx_count);
-            }
-
-            p_radio_int_data->packet_receive = 1; // reception is in progress
-        }
-        else
-        {
-            verbprintf(3, "GDO0 Rx falling edge (%d,%d): %d bytes remaining\n", 
-                p_radio_int_data->packet_receive, 
-                p_radio_int_data->packet_send, 
-                p_radio_int_data->bytes_remaining);
-
-            if (p_radio_int_data->packet_receive) // packet has been received
-            {
-                PI_CC_SPIReadBurstReg(p_radio_int_data->spi_parms, PI_CCxxx0_RXFIFO, &p_byte, p_radio_int_data->bytes_remaining);
-                memcpy((uint8_t *) &(p_radio_int_data->rx_buf[p_radio_int_data->byte_index]), p_byte, p_radio_int_data->bytes_remaining);
-                p_radio_int_data->byte_index += p_radio_int_data->bytes_remaining;
-                p_radio_int_data->bytes_remaining = 0;
-
-                radio_int_data.mode = RADIOMODE_NONE;
-                p_radio_int_data->packet_receive = 0; // reception is done
-                p_radio_int_data->packet_rx_count++;
-            }            
-        }        
-    }    
-    else if (p_radio_int_data->mode == RADIOMODE_TX)
-    {
-        if (int_line)
-        {
-            verbprintf(3, "GDO0 Tx rising edge (%d,%d)\n", 
-                p_radio_int_data->packet_receive, 
-                p_radio_int_data->packet_send);
-            p_radio_int_data->packet_send = 1; // Assert packet transmission after sync has been sent
-        }
-        else
-        {
-            verbprintf(3, "GDO0 Tx falling edge (%d,%d)\n", 
-                p_radio_int_data->packet_receive, 
-                p_radio_int_data->packet_send);
-            if (p_radio_int_data->packet_send) // packet has been sent
-            {
-                radio_int_data.mode = RADIOMODE_NONE;
-                p_radio_int_data->packet_send = 0; // De-assert packet transmission after packet has been sent
-                p_radio_int_data->packet_tx_count++;
-                verbprintf(3, "Sent packet #%d. Remaining bytes to send: %d\n", p_radio_int_data->packet_tx_count, p_radio_int_data->bytes_remaining);
-
-                if ((verbose_level > 0) && (p_radio_int_data->bytes_remaining))
-                {
-                    verbprintf(0, "RADIO: anomalous condition detected on GDO0 Tx falling edge\n");
-                    print_radio_status(p_radio_int_data->spi_parms);
-                    radio_flush_fifos(p_radio_int_data->spi_parms);
-                }
-            }
-        }
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// Processes packets that do not fit in Rx or Tx FIFOs and 255 bytes long maximum
-// FIFO threshold interrupt handler 
-void int_threshold(void)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t i, int_line, bytes_to_send, x_byte, *p_byte;
-
-    int_line = digitalRead(WPI_GDO2); // Sense interrupt line to determine if it was a raising or falling edge
-
-    if ((p_radio_int_data->mode == RADIOMODE_RX) && (int_line)) // Filling of Rx FIFO - Read next 59 bytes
-    {
-        verbprintf(3, "GDO2 Rx rising edge (%d,%d): %d bytes remaining\n", 
-            p_radio_int_data->packet_receive, 
-            p_radio_int_data->packet_send, 
-            p_radio_int_data->bytes_remaining);
-
-        if (p_radio_int_data->packet_receive) // if reception has started
-        {
-            p_radio_int_data->threshold_hits++;
-
-            PI_CC_SPIReadBurstReg(p_radio_int_data->spi_parms, PI_CCxxx0_RXFIFO, &p_byte, RX_FIFO_UNLOAD);
-            memcpy((uint8_t *) &(p_radio_int_data->rx_buf[p_radio_int_data->byte_index]), p_byte, RX_FIFO_UNLOAD);
-            p_radio_int_data->byte_index += RX_FIFO_UNLOAD;
-            p_radio_int_data->bytes_remaining -= RX_FIFO_UNLOAD;            
-        }
-    }
-    else if ((p_radio_int_data->mode == RADIOMODE_TX) && (!int_line)) // Depletion of Tx FIFO - Write at most next TX_FIFO_REFILL bytes
-    {
-        verbprintf(3, "GDO2 Tx falling edge (%d,%d): %d bytes remaining\n", 
-            p_radio_int_data->packet_receive, 
-            p_radio_int_data->packet_send, 
-            p_radio_int_data->bytes_remaining);
-
-        if ((p_radio_int_data->packet_send) && (p_radio_int_data->bytes_remaining > 0)) // bytes left to send
-        {
-            p_radio_int_data->threshold_hits++;
-
-            if (p_radio_int_data->bytes_remaining < TX_FIFO_REFILL)
-            {
-                bytes_to_send = p_radio_int_data->bytes_remaining;
-            }
-            else
-            {
-                bytes_to_send = TX_FIFO_REFILL;
-            }
-
-            PI_CC_SPIWriteBurstReg(p_radio_int_data->spi_parms, PI_CCxxx0_TXFIFO, (uint8_t *) &(p_radio_int_data->tx_buf[p_radio_int_data->byte_index]), bytes_to_send);
-            p_radio_int_data->byte_index += bytes_to_send;
-            p_radio_int_data->bytes_remaining -= bytes_to_send;
-        }        
-    }
-}
+*/
 
 // === Static functions ===========================================================================
 
@@ -370,6 +217,7 @@ void get_rate_words(arguments_t *arguments, radio_parms_t *radio_parms)
     radio_parms->chanspc_e &= 0x03; // it is 2 bits long
 }
 
+/*
 // ------------------------------------------------------------------------------------------------
 // Poll FSM state waiting for given state until timeout (approx ms)
 void wait_for_state(spi_parms_t *spi_parms, ccxxx0_state_t state, uint32_t timeout)
@@ -426,10 +274,10 @@ void print_received_packet(int verbose_min)
         0x7F - (crc_lqi & 0x7F),
         (crc_lqi & PI_CCxxx0_CRC_OK)>>7);
 }
-
+*/
 
 // === Public functions ===========================================================================
-
+/*
 // ------------------------------------------------------------------------------------------------
 // Initialize interrupt data and mechanism
 void init_radio_int(spi_parms_t *spi_parms, arguments_t *arguments)
@@ -883,56 +731,68 @@ int init_radio(radio_parms_t *radio_parms, spi_parms_t *spi_parms, arguments_t *
 
     return 0;
 }
-
+*/
 // ------------------------------------------------------------------------------------------------
 // Print status registers to stderr
-int  print_radio_status(spi_parms_t *spi_parms)
+void print_radio_status(arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t regs[14];
-    uint8_t reg_index = PI_CCxxx0_PARTNUM;
-    int ret = 0;
+    uint8_t dataBuffer[14];
+    uint8_t *regs;
+    serial_t serial_parms;
+    uint32_t timeout, speed;
+    int nbytes;
 
-    memset(regs, 0, 14);
+    dataBuffer[0] = (uint8_t) BLOCK_TYPE_RADIO_STATUS;
+    dataBuffer[1] = 0;
 
-    while ((ret == 0) && (reg_index <= PI_CCxxx0_RXBYTES))
+    set_serial_parameters(&serial_parms, arguments->usbacm_device, get_serial_speed(115200, &speed));
+    fprintf(stderr, "Start...\n");
+
+    nbytes = write_serial(&serial_parms, dataBuffer, 2);
+    fprintf(stderr, "%d bytes written to USB\n", nbytes);
+    timeout = 10000;
+
+    do
     {
-        ret = PI_CC_SPIReadStatus(spi_parms, reg_index, &regs[reg_index - PI_CCxxx0_PARTNUM]);
-        reg_index++;
+        nbytes = read_serial(&serial_parms, dataBuffer, 14);
+        usleep(10);
+        timeout--;
+    } while ((nbytes <= 0) && (timeout > 0));
+
+    if (nbytes > 0)
+    {
+        regs = &dataBuffer[2];
+
+        fprintf(stderr, "Part number ...........: %d\n", regs[0]);
+        fprintf(stderr, "Version ...............: %d\n", regs[1]);
+        fprintf(stderr, "Freq offset estimate ..: %d\n", regs[2]);
+        fprintf(stderr, "CRC OK ................: %d\n", ((regs[3] & 0x80)>>7));
+        fprintf(stderr, "LQI ...................: %d\n", regs[3] & 0x7F);
+        fprintf(stderr, "RSSI ..................: %.1f dBm\n", rssi_dbm(regs[4]));
+        fprintf(stderr, "Radio FSM state .......: %s\n", state_names[regs[5] & 0x1F]);
+        fprintf(stderr, "WOR time ..............: %d\n", ((regs[6] << 8) + regs[7]));
+        fprintf(stderr, "Carrier Sense .........: %d\n", ((regs[8] & 0x40)>>6));
+        fprintf(stderr, "Preamble Qual Reached .: %d\n", ((regs[8] & 0x20)>>5));
+        fprintf(stderr, "Clear channel .........: %d\n", ((regs[8] & 0x10)>>4));
+        fprintf(stderr, "Start of frame delim ..: %d\n", ((regs[8] & 0x08)>>3));
+        fprintf(stderr, "GDO2 ..................: %d\n", ((regs[8] & 0x04)>>2));
+        fprintf(stderr, "GDO0 ..................: %d\n", ((regs[8] & 0x01)));
+        fprintf(stderr, "VCO VC DAC ............: %d\n", regs[9]);
+        fprintf(stderr, "FIFO Tx underflow .....: %d\n", ((regs[10] & 0x80)>>7));
+        fprintf(stderr, "FIFO Tx bytes .........: %d\n", regs[10] & 0x7F);
+        fprintf(stderr, "FIFO Rx overflow ......: %d\n", ((regs[11] & 0x80)>>7));
+        fprintf(stderr, "FIFO Rx bytes .........: %d\n", regs[11] & 0x7F);
+    }
+    else
+    {
+        fprintf(stderr, "Error reading from %s\n", arguments->usbacm_device);
     }
 
-    if (ret != 0)
-    {
-        fprintf(stderr, "RADIO: read status register %02X failed\n", reg_index-1);
-        return ret;
-    }
-
-    fprintf(stderr, "Part number ...........: %d\n", regs[0]);
-    fprintf(stderr, "Version ...............: %d\n", regs[1]);
-    fprintf(stderr, "Freq offset estimate ..: %d\n", regs[2]);
-    fprintf(stderr, "CRC OK ................: %d\n", ((regs[3] & 0x80)>>7));
-    fprintf(stderr, "LQI ...................: %d\n", regs[3] & 0x7F);
-    fprintf(stderr, "RSSI ..................: %.1f dBm\n", rssi_dbm(regs[4]));
-    fprintf(stderr, "Radio FSM state .......: %s\n", state_names[regs[5] & 0x1F]);
-    fprintf(stderr, "WOR time ..............: %d\n", ((regs[6] << 8) + regs[7]));
-    fprintf(stderr, "Carrier Sense .........: %d\n", ((regs[8] & 0x40)>>6));
-    fprintf(stderr, "Preamble Qual Reached .: %d\n", ((regs[8] & 0x20)>>5));
-    fprintf(stderr, "Clear channel .........: %d\n", ((regs[8] & 0x10)>>4));
-    fprintf(stderr, "Start of frame delim ..: %d\n", ((regs[8] & 0x08)>>3));
-    fprintf(stderr, "GDO2 ..................: %d\n", ((regs[8] & 0x04)>>2));
-    fprintf(stderr, "GDO0 ..................: %d\n", ((regs[8] & 0x01)));
-    fprintf(stderr, "VCO VC DAC ............: %d\n", regs[9]);
-    fprintf(stderr, "FIFO Tx underflow .....: %d\n", ((regs[10] & 0x80)>>7));
-    fprintf(stderr, "FIFO Tx bytes .........: %d\n", regs[10] & 0x7F);
-    fprintf(stderr, "FIFO Rx overflow ......: %d\n", ((regs[11] & 0x80)>>7));
-    fprintf(stderr, "FIFO Rx bytes .........: %d\n", regs[11] & 0x7F);
-    fprintf(stderr, "RC CRTL0 ..............: %d\n", (regs[12] & 0x7F));
-    fprintf(stderr, "RC CRTL1 ..............: %d\n", (regs[13] & 0x7F));
-
-    return ret;
+    close_serial(&serial_parms);
 }
 
-
+/*
 // ------------------------------------------------------------------------------------------------
 // Print actual radio link parameters once initialized
 //   o Operating frequency ..: Fo   = (Fxosc / 2^16) * FREQ[23..0]
@@ -1213,3 +1073,4 @@ void radio_send_packet(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *
 
     packets_sent++;
 }
+*/

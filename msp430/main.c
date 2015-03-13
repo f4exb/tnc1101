@@ -145,6 +145,9 @@ void main (void)
     initClocks(8000000);   // Config clocks. MCLK=SMCLK=FLL=8MHz; ACLK=REFO=32kHz
     USB_setup(TRUE, TRUE); // Init USB & events; if a host is present, connect
 
+    __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
+    init_radio();          // Initialize radio module
+
     __enable_interrupt();  // Enable interrupts globally
 
     while (1)
@@ -164,6 +167,7 @@ void main (void)
             case ST_ENUM_ACTIVE:
                 // You will not want this in the general case
                 // Sleep if there are no bytes to process.
+                /*
                 __disable_interrupt();
                 if (!USBCDC_bytesInUSBBuffer(CDC0_INTFNUM)) {
                 
@@ -172,7 +176,7 @@ void main (void)
                 }
 
                 __enable_interrupt();
-
+                */
                 // Exit LPM because of a data-receive event, and
                 // fetch the received data
                 if (bCDCDataReceived_event){
@@ -183,7 +187,7 @@ void main (void)
 
                     count = cdcReceiveDataInBuffer((uint8_t*) dataBuffer, BUFFER_SIZE, CDC0_INTFNUM);
 
-                    if (count > 2)
+                    if (count >= 2)
                     {
                         retVal = process_usb_block(count, (uint8_t*) dataBuffer);
 

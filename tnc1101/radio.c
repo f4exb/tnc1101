@@ -17,6 +17,7 @@
 #include "util.h"
 #include "radio.h"
 #include "serial.h"
+#include "msp430_interface.h"
 
 char *state_names[] = {
     "SLEEP",            // 00
@@ -743,7 +744,7 @@ void print_radio_status(arguments_t *arguments)
     uint32_t timeout, speed;
     int nbytes;
 
-    dataBuffer[0] = (uint8_t) BLOCK_TYPE_RADIO_STATUS;
+    dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RADIO_STATUS;
     dataBuffer[1] = 0;
 
     set_serial_parameters(&serial_parms, arguments->usbacm_device, get_serial_speed(115200, &speed));

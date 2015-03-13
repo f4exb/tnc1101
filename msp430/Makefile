@@ -14,7 +14,7 @@ USB_CONFIG = $(PROJECT_ROOT)/USB_config
 USB_API = $(USB_BASE)/USB_API
 
 
-CFLAGS = -I $(SUPPORT_FILE_DIRECTORY) -I $(USB_BASE) -I $(DRIVERLIB_DIR) -I $(PROJECT_ROOT) -I $(USB_CONFIG) -I $(USB_API) -D__$(DEVICE)__ -mmcu=$(MCU) -O3 -g -fdata-sections -w
+CFLAGS = -I../common -I $(SUPPORT_FILE_DIRECTORY) -I $(USB_BASE) -I $(DRIVERLIB_DIR) -I $(PROJECT_ROOT) -I $(USB_CONFIG) -I $(USB_API) -D__$(DEVICE)__ -mmcu=$(MCU) -O3 -g -fdata-sections -w
 LFLAGS = -T $(MSP430_FILE) -T $(SUPPORT_FILE_DIRECTORY)/msp430f5529.ld -Wl,--gc-sections
 
 SRC_FILES = \

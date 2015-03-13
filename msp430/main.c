@@ -59,17 +59,7 @@
 #include "hal.h"
 #include "util.h"
 #include "radio.h"
-
-typedef enum block_type_e
-{
-    BLOCK_TYPE_DATA = 0,
-    BLOCK_TYPE_DATA_ACK,
-    BLOCK_TYPE_COMMAND,
-    BLOCK_TYPE_COMMAND_ACK,
-    BLOCK_TYPE_RADIO_STATUS,    
-    BLOCK_TYPE_ECHO_TEST,
-    BLOCK_TYPE_ERROR
-} block_type_t;
+#include "msp430_interface.h"
 
 // Global flags set by events
 volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler to 
@@ -96,7 +86,7 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     uint8_t byte_count = dataBuffer[1];
     char str_byte[4];
 
-    if (dataBuffer[0] == (uint8_t) BLOCK_TYPE_ECHO_TEST)
+    if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_ECHO_TEST)
     {
         strcpy(outString, "xxEcho Command - Byte count: ");
         print_byte_decimal(byte_count, str_byte);
@@ -110,12 +100,23 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
             return 1;
         }
     }
-    else if (dataBuffer[0] == (uint8_t) BLOCK_TYPE_RADIO_STATUS)
+    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RADIO_STATUS)
     {
         get_radio_status(&dataBuffer[2]);
         dataBuffer[1] = TI_CCxxx0_NUM_STATUS;
 
         if (cdcSendDataInBackground((uint8_t *) dataBuffer, TI_CCxxx0_NUM_STATUS + 2, CDC0_INTFNUM, 1))
+        {
+            // Exit if something went wrong.
+            return 1;
+        }
+    }
+    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
+    {
+        init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
+        dataBuffer[1] = 0;
+
+        if (cdcSendDataInBackground((uint8_t *) dataBuffer, 2, CDC0_INTFNUM, 1))
         {
             // Exit if something went wrong.
             return 1;
@@ -146,7 +147,7 @@ void main (void)
     USB_setup(TRUE, TRUE); // Init USB & events; if a host is present, connect
 
     __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
-    init_radio();          // Initialize radio module
+    init_radio_spi();      // Initialize SPI comm with radio module
 
     __enable_interrupt();  // Enable interrupts globally
 

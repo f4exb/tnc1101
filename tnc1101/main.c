@@ -19,6 +19,7 @@
 #include "pi_cc_spi.h"
 #include "radio.h"
 #include "kiss.h"
+#include "msp430_interface.h"
 
 arguments_t   arguments;
 serial_t      serial_parameters;

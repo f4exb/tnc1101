@@ -1,6 +1,7 @@
 *.zip
 MSP430_USB_API/examples/
 ModifiedCodeSLAA325A/
+source_rev_113/
 msp430/*.o
 msp430/*.out
 msp430/main04.c

@@ -60,6 +60,7 @@
 #include "util.h"
 #include "radio.h"
 #include "msp430_interface.h"
+#include "TI_CC_hardware_board.h"
 
 // Global flags set by events
 volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler to 
@@ -74,9 +75,69 @@ char outString[65];  // Holds outgoing strings to be sent
 
 // ================================================================================================
 
+static void    init_leds();
+static void    set_red_led(uint8_t on);
+static void    set_green_led(uint8_t on);
+static void    toggle_red_led();
+static void    toggle_green_led();
 static uint8_t process_usb_block(uint16_t count, uint8_t *block);
 
 // ================================================================================================
+
+// ------------------------------------------------------------------------------------------------
+// Init the board LEDs
+void init_leds()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_RED_LED_PxDIR   = TI_CC_RED_LED;
+    TI_CC_GREEN_LED_PxDIR = TI_CC_GREEN_LED;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Set the red led on or off
+void set_red_led(uint8_t on)
+// ------------------------------------------------------------------------------------------------
+{
+    if (on)
+    {
+        TI_CC_RED_LED_PxOUT |= TI_CC_RED_LED;
+    }
+    else
+    {
+        TI_CC_RED_LED_PxOUT &= ~TI_CC_RED_LED;        
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Set the green led on or off
+void set_green_led(uint8_t on)
+// ------------------------------------------------------------------------------------------------
+{
+    if (on)
+    {
+        TI_CC_GREEN_LED_PxOUT |= TI_CC_GREEN_LED;
+    }
+    else
+    {
+        TI_CC_GREEN_LED_PxOUT &= ~TI_CC_GREEN_LED;        
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Toggle the red led
+void toggle_red_led()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_RED_LED_PxOUT ^= TI_CC_RED_LED;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Toggle the red led
+void toggle_green_led()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_GREEN_LED_PxOUT ^= TI_CC_GREEN_LED;
+}
 
 // ------------------------------------------------------------------------------------------------
 // Process an incoming USB block
@@ -115,6 +176,7 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     {
         init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
         dataBuffer[1] = 0;
+        toggle_green_led();
 
         if (cdcSendDataInBackground((uint8_t *) dataBuffer, 2, CDC0_INTFNUM, 1))
         {
@@ -149,6 +211,7 @@ void main (void)
 
     __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
     init_radio_spi();      // Initialize SPI comm with radio module
+    init_leds();
 
     __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
 

@@ -1,6 +1,6 @@
 DEVICE = MSP430F5529
 MCU=msp430f5529
-PROG_NAME = testecho
+PROG_NAME = msp430_cc1101
 USB_BASE = ../MSP430_USB_API
 REDHAT_GCC = /opt/install/msp430-elf-gcc
 GCC_BIN = $(REDHAT_GCC)/bin

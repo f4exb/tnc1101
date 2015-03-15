@@ -21,18 +21,19 @@
 #include "kiss.h"
 #include "msp430_interface.h"
 
-arguments_t   arguments;
-serial_t      serial_parameters;
-spi_parms_t   spi_parameters;
-radio_parms_t radio_parameters;
+arguments_t          arguments;
+serial_t             serial_parms;
+msp430_radio_parms_t radio_parms;
 
 char *tnc_mode_names[] = {
-    "KISS",
+    "KISS TNC",
     "USB echo",
-    "Radio status"
+    "Radio status",
+    "Radio transmission test"
 };
 
 char *modulation_names[] = {
+    "None",
     "OOK",
     "2-FSK",
     "4-FSK",
@@ -91,6 +92,7 @@ static struct argp_option options[] = {
     {"fec",  'F', 0, 0, "Activate FEC (default off)"},
     {"whitening",  'W', 0, 0, "Activate whitening (default off)"},
     {"frequency",  'f', "FREQUENCY_HZ", 0, "Frequency in Hz (default: 433600000)"},
+    {"if-frequency",  'I', "IF_FREQUENCY_HZ", 0, "Intermediate frequency in Hz (default: 310000)"},
     {"packet-length",  'P', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
     {"variable-length",  'V', 0, 0, "Variable packet length. Given packet length becomes maximum length (default off)"},
     {"tnc-mode",  't', "TNC_MODE", 0, "TNC mode of operation, See long help (-H) option fpr details (default : 0 KISS)"},
@@ -115,6 +117,7 @@ static void delete_args(arguments_t *arguments);
 static void terminate(const int signal_) {
 // ------------------------------------------------------------------------------------------------
     printf("PICC: Terminating with signal %d\n", signal_);
+    close_serial(&serial_parms);
     delete_args(&arguments);
     exit(1);
 }
@@ -128,7 +131,7 @@ static void print_long_help()
     fprintf(stderr, "Modulation scheme option -M values\n");
     fprintf(stderr, "Value:\tScheme:\n");
 
-    for (i=0; i<NUM_MOD; i++)
+    for (i=0; i < RADIO_NUM_MOD; i++)
     {
         fprintf(stderr, "%d\t%s\n", i, modulation_names[i]);
     }
@@ -167,12 +170,13 @@ static void init_args(arguments_t *arguments)
     arguments->serial_speed_n = 38400;
     arguments->spi_device = 0;
     arguments->print_radio_status = 0;
-    arguments->modulation = MOD_FSK2;
+    arguments->modulation = RADIO_MOD_FSK2;
     arguments->rate = RATE_9600;
     arguments->rate_skew = 1.0;
     arguments->packet_delay = 30;
     arguments->modulation_index = 0.5;
     arguments->freq_hz = 433600000;
+    arguments->if_freq_hz = 310000;
     arguments->packet_length = 250;
     arguments->variable_length = 0;
     arguments->tnc_mode = TNC_KISS;
@@ -278,16 +282,16 @@ static tnc_mode_t get_tnc_mode(uint8_t tnc_mode_index)
 
 // ------------------------------------------------------------------------------------------------
 // Get modulation scheme from index
-static modulation_t get_modulation_scheme(uint8_t modulation_index)
+static radio_modulation_t get_modulation_scheme(uint8_t modulation_index)
 // ------------------------------------------------------------------------------------------------
 {
-    if (modulation_index < NUM_MOD)
+    if (modulation_index < RADIO_NUM_MOD)
     {
-        return (modulation_t) modulation_index;
+        return (radio_modulation_t) modulation_index;
     }
     else
     {
-        return MOD_FSK2;
+        return RADIO_MOD_FSK2;
     }
 }
 
@@ -368,6 +372,12 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         // Radio link frequency
         case 'f':
             arguments->freq_hz = strtol(arg, &end, 10);
+            if (*end)
+                argp_usage(state);
+            break; 
+        // Radio link intermediate frequency
+        case 'I':
+            arguments->if_freq_hz = strtol(arg, &end, 10);
             if (*end)
                 argp_usage(state);
             break; 
@@ -494,7 +504,7 @@ static struct argp argp = {options, parse_opt, args_doc, doc};
 int main (int argc, char **argv)
 // ------------------------------------------------------------------------------------------------
 {
-    int i, ret;
+    int i;
 
     // unsolicited termination handling
     struct sigaction sa;
@@ -546,17 +556,27 @@ int main (int argc, char **argv)
         arguments.spi_device = strdup("/dev/spidev0.0");
     }
 
-    print_args(&arguments);
+    set_serial_parameters(&serial_parms, arguments.usbacm_device, get_serial_speed(115200, &arguments.serial_speed_n));
+    init_radio_parms(&radio_parms, &arguments);
+
+    if (arguments.verbose_level > 0)
+    {
+        print_args(&arguments);
+        print_radio_parms(&radio_parms);
+        fprintf(stderr, "\n");
+    }
 
     if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
     {
-        usb_test_echo(&arguments);
-        return 0;
+        usb_test_echo(&serial_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_RADIO_STATUS) 
     {
-        print_radio_status(&arguments);
-        return 0;
+        print_radio_status(&serial_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_RX)
+    {
+        radio_transmit_test(&serial_parms, &radio_parms, &arguments);
     }
     
     /*
@@ -606,6 +626,7 @@ int main (int argc, char **argv)
     }
     */
 
+    close_serial(&serial_parms);
     delete_args(&arguments);
     return 0;
 }

@@ -82,6 +82,13 @@
 #define TI_CC_CSn_PxDIR         P2DIR
 #define TI_CC_CSn_PIN           BIT2
 
+#define TI_CC_RED_LED_PxOUT     P1OUT
+#define TI_CC_RED_LED_PxDIR     P1DIR
+#define TI_CC_RED_LED           BIT0
+
+#define TI_CC_GREEN_LED_PxOUT   P4OUT
+#define TI_CC_GREEN_LED_PxDIR   P4DIR
+#define TI_CC_GREEN_LED         BIT7
 
 //----------------------------------------------------------------------------
 // Select which port will be used for interface to CCxxxx

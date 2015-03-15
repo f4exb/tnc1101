@@ -11,7 +11,8 @@
 #define _USB_TEST_H
 
 #include "main.h"
+#include "serial.h"
 
-void usb_test_echo(arguments_t *arguments);
+void usb_test_echo(serial_t *serial_parms, arguments_t *arguments);
 
 #endif

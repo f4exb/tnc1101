@@ -11,14 +11,11 @@
 #define _TEST_H_
 
 #include "main.h"
-#include "pi_cc_spi.h"
+#include "serial.h"
 #include "radio.h"
 
-int  radio_transmit_test_int(spi_parms_t *spi_parms, arguments_t *arguments);
-int  radio_receive_test_int(spi_parms_t *spi_parms, arguments_t *arguments);
-void radio_test_echo(spi_parms_t *spi_parms, radio_parms_t *radio_parms, arguments_t *arguments, uint8_t active);
-
-int radio_transmit_test(spi_parms_t *spi_parms, arguments_t *arguments);
-int radio_receive_test(spi_parms_t *spi_parms, arguments_t *arguments);
+int  radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, arguments_t *arguments);
+//int  radio_receive_test(serial_t *serial_parms, arguments_t *arguments);
+//void radio_test_echo(serial_t *serial_parms, arguments_t *arguments, uint8_t active);
 
 #endif

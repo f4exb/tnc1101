@@ -24,7 +24,8 @@ void init_radio_spi()
 void init_radio(msp430_radio_parms_t *radio_parms)
 // ------------------------------------------------------------------------------------------------
 {
-    /*
+    uint8_t reg_word;
+
     // Write register settings
 
     // IOCFG2 = 0x00: Set in Rx mode (0x02 for Tx mode)
@@ -32,31 +33,31 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //         De-asserts when RX FIFO is drained below the same threshold.
     // o 0x02: Asserts when the TX FIFO is filled at or above the TX FIFO threshold.
     //         De-asserts when the TX FIFO is below the same threshold.
-    TI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_IOCFG2,   0x00); // GDO2 output pin config.
+    TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2,   0x00); // GDO2 output pin config.
 
     // IOCFG0 = 0x06: Asserts when sync word has been sent / received, and de-asserts at the
     // end of the packet. In RX, the pin will de-assert when the optional address
     // check fails or the RX FIFO overflows. In TX the pin will de-assert if the TX
     // FIFO underflows:    
-    TI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_IOCFG0,   0x06); // GDO0 output pin config.
+    TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG0,   0x06); // GDO0 output pin config.
 
     // FIFO_THR = 14: 
     // o 5 bytes in TX FIFO (55 available spaces)
     // o 60 bytes in the RX FIFO
-    TI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FIFOTHR,  0x0E); // FIFO threshold.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FIFOTHR,  0x0E); // FIFO threshold.
 
     // PKTLEN: packet length up to 255 bytes. 
-    TI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_PKTLEN, radio_parms->packet_length); // Packet length.
+    TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, radio_parms->packet_length); // Packet length.
 
     // PKTCTRL0: Packet automation control #0
     // . bit  7:   unused
-    // . bit  6:   0  -> whitening off
+    // . bit  6:   x  -> data whitening. Taken from radio config.
     // . bits 5:4: 00 -> normal mode use FIFOs for Rx and Tx
     // . bit  3:   unused
     // . bit  2:   1  -> CRC enabled
     // . bits 1:0: xx -> Packet length mode. Taken from radio config.
-    //reg_word = (arguments->whitening<<6) + 0x04 + (int) radio_parms->packet_config;
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_PKTCTRL0, radio_parms->pktctrl0); // Packet automation control.
+    reg_word = ((radio_parms->fec_whitening & 0x02)<<5) + 0x04 + (uint8_t) (radio_parms->packet_config & 0x03);
+    TI_CC_SPIWriteReg(TI_CCxxx0_PKTCTRL0, reg_word); // Packet automation control.
 
     // PKTCTRL1: Packet automation control #1
     // . bits 7:5: 000 -> Preamble quality estimator threshold
@@ -64,20 +65,19 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     // . bit  3:   0   -> Automatic flush of Rx FIFO disabled (too many side constraints see doc)
     // . bit  2:   1   -> Append two status bytes to the payload (RSSI and LQI + CRC OK)
     // . bits 1:0: 00  -> No address check of received packets
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_PKTCTRL1, 0x04); // Packet automation control.
+    TI_CC_SPIWriteReg(TI_CCxxx0_PKTCTRL1, 0x04); // Packet automation control.
 
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_ADDR,     0x00); // Device address for packet filtration (unused, see just above).
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_CHANNR,   0x00); // Channel number (unused, use direct frequency programming).
+    TI_CC_SPIWriteReg(TI_CCxxx0_ADDR,     0x00); // Device address for packet filtration (unused, see just above).
+    TI_CC_SPIWriteReg(TI_CCxxx0_CHANNR,   0x00); // Channel number (unused, use direct frequency programming).
 
     // FSCTRL0: Frequency offset added to the base frequency before being used by the
     // frequency synthesizer. (2s-complement). Multiplied by Fxtal/2^14
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSCTRL0,  0x00); // Freq synthesizer control.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCTRL0,  0x00); // Freq synthesizer control.
 
     // FSCTRL1: The desired IF frequency to employ in RX. Subtracted from FS base frequency
     // in RX and controls the digital complex mixer in the demodulator. Multiplied by Fxtal/2^10
     // Here 0.3046875 MHz (lowest point below 310 kHz)
-    radio_parms->if_word = get_if_word(radio_parms->f_xtal, radio_parms->f_if);    
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSCTRL1, (radio_parms->if_word & 0x1F)); // Freq synthesizer control.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCTRL1, (radio_parms->if_word & 0x1F)); // Freq synthesizer control.
 
     // FREQ2..0: Base frequency for the frequency sythesizer
     // Fo = (Fxosc / 2^16) * FREQ[23..0]
@@ -85,12 +85,11 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     // FREQ1 is FREQ[15..8]
     // FREQ0 is FREQ[7..0]
     // Fxtal = 26 MHz and FREQ = 0x10A762 => Fo = 432.99981689453125 MHz
-    radio_parms->freq_word = get_freq_word(radio_parms->f_xtal, arguments->freq_hz);
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FREQ2,    ((radio_parms->freq_word>>16) & 0xFF)); // Freq control word, high byte
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FREQ1,    ((radio_parms->freq_word>>8)  & 0xFF)); // Freq control word, mid byte.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FREQ0,    (radio_parms->freq_word & 0xFF));       // Freq control word, low byte.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FREQ2,    ((radio_parms->freq_word>>16) & 0xFF)); // Freq control word, high byte
+    TI_CC_SPIWriteReg(TI_CCxxx0_FREQ1,    ((radio_parms->freq_word>>8)  & 0xFF)); // Freq control word, mid byte.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FREQ0,    (radio_parms->freq_word & 0xFF));       // Freq control word, low byte.
 
-    // MODCFG4 Modem configuration - bandwidth and data rate exponent
+    // MDMCFG4 Modem configuration - bandwidth and data rate exponent
     // High nibble: Sets the decimation ratio for the delta-sigma ADC input stream hence the channel bandwidth
     // . bits 7:6: 0  -> CHANBW_E: exponent parameter (see next)
     // . bits 5:4: 2  -> CHANBW_M: mantissa parameter as per:
@@ -99,33 +98,33 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     // Low nibble:
     // . bits 3:0: 13 -> DRATE_E: data rate base 2 exponent => here 13 (multiply by 8192)
     reg_word = (radio_parms->chanbw_e<<6) + (radio_parms->chanbw_m<<4) + radio_parms->drate_e;
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MDMCFG4,  reg_word); // Modem configuration.
+    TI_CC_SPIWriteReg(TI_CCxxx0_MDMCFG4,  reg_word); // Modem configuration.
 
-    // MODCFG3 Modem configuration: DRATE_M data rate mantissa as per formula:
+    // MDMCFG3 Modem configuration: DRATE_M data rate mantissa as per formula:
     //    Rate = (256 + DRATE_M).2^DRATE_E.Fxosc / 2^28 
     // Here DRATE_M = 59, DRATE_E = 13 => Rate = 250 kBaud
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MDMCFG3,  radio_parms->drate_m); // Modem configuration.
+    TI_CC_SPIWriteReg(TI_CCxxx0_MDMCFG3,  radio_parms->drate_m); // Modem configuration.
 
-    // MODCFG2 Modem configuration: DC block, modulation, Manchester, sync word
+    // MDMCFG2 Modem configuration: DC block, modulation, Manchester, sync word
     // o bit 7:    0   -> Enable DC blocking (1: disable)
-    // o bits 6:4: xxx -> (provided)
+    // o bits 6:4: xxx -> Modulation word. Taken from radio config.
     // o bit 3:    0   -> Manchester disabled (1: enable)
-    // o bits 2:0: 011 -> Sync word qualifier is 30/32 (static init in radio interface)
-    reg_word = (get_mod_word(arguments->modulation)<<4) + radio_parms->sync_ctl;
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MDMCFG2,  reg_word); // Modem configuration.
+    // o bits 2:0: 011 -> Sync word qualifier (30/32 by default). Taken from radio config.
+    reg_word = (radio_parms->mod_word<<4) + radio_parms->sync_word;
+    TI_CC_SPIWriteReg(TI_CCxxx0_MDMCFG2,  reg_word); // Modem configuration.
 
-    // MODCFG1 Modem configuration: FEC, Preamble, exponent for channel spacing
-    // o bit 7:    0   -> FEC disabled (1: enable)
+    // MDMCFG1 Modem configuration: FEC, Preamble, exponent for channel spacing
+    // o bit 7:    x   -> FEC. Taken from radio config.
     // o bits 6:4: 2   -> number of preamble bytes (0:2, 1:3, 2:4, 3:6, 4:8, 5:12, 6:16, 7:24)
     // o bits 3:2: unused
     // o bits 1:0: CHANSPC_E: exponent of channel spacing (here: 2)
-    reg_word = (arguments->fec<<7) + (((int) arguments->preamble)<<4) + (radio_parms->chanspc_e);
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MDMCFG1,  reg_word); // Modem configuration.
+    reg_word = ((radio_parms->fec_whitening&0x01)<<7) + (((uint8_t) radio_parms->preamble_word)<<4) + (radio_parms->chanspc_e);
+    TI_CC_SPIWriteReg(TI_CCxxx0_MDMCFG1,  reg_word); // Modem configuration.
 
     // MODCFG0 Modem configuration: CHANSPC_M: mantissa of channel spacing following this formula:
     //    Df = (Fxosc / 2^18) * (256 + CHANSPC_M) * 2^CHANSPC_E
     //    Here: (26 /  ) * 2016 = 0.199951171875 MHz (200 kHz)
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MDMCFG0,  radio_parms->chanspc_m); // Modem configuration.
+    TI_CC_SPIWriteReg(TI_CCxxx0_MDMCFG0,  radio_parms->chanspc_m); // Modem configuration.
 
     // DEVIATN: Modem deviation
     // o bit 7:    0   -> not used
@@ -144,10 +143,10 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   OOK      : No effect
     //    
     reg_word = (radio_parms->deviat_e<<4) + (radio_parms->deviat_m);
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_DEVIATN,  reg_word); // Modem dev (when FSK mod en)
+    TI_CC_SPIWriteReg(TI_CCxxx0_DEVIATN,  reg_word); // Modem dev (when FSK mod en)
 
     // MCSM2: Main Radio State Machine. See documentation.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MCSM2 ,   0x00); //MainRadio Cntrl State Machine
+    TI_CC_SPIWriteReg(TI_CCxxx0_MCSM2 ,   0x00); //MainRadio Cntrl State Machine
 
     // MCSM1: Main Radio State Machine. 
     // o bits 7:6: not used
@@ -166,7 +165,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   1 (01): FSTXON
     //   2 (10): TX (stay)
     //   3 (11): RX 
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MCSM1 ,   0x3C); //MainRadio Cntrl State Machine
+    TI_CC_SPIWriteReg(TI_CCxxx0_MCSM1 ,   0x3C); //MainRadio Cntrl State Machine
 
     // MCSM0: Main Radio State Machine.
     // o bits 7:6: not used
@@ -183,7 +182,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   3 (11): 256: Approx. 597 – 620 μs
     // o bit 1: PIN_CTRL_EN:   Enables the pin radio control option
     // o bit 0: XOSC_FORCE_ON: Force the XOSC to stay on in the SLEEP state.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_MCSM0 ,   0x18); //MainRadio Cntrl State Machine
+    TI_CC_SPIWriteReg(TI_CCxxx0_MCSM0 ,   0x18); //MainRadio Cntrl State Machine
 
     // FOCCFG: Frequency Offset Compensation Configuration.
     // o bits 7:6: not used
@@ -202,7 +201,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   1 (01): ±BW CHAN /8
     //   2 (10): ±BW CHAN /4
     //   3 (11): ±BW CHAN /2
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FOCCFG,   0x1D); // Freq Offset Compens. Config
+    TI_CC_SPIWriteReg(TI_CCxxx0_FOCCFG,   0x1D); // Freq Offset Compens. Config
 
     // BSCFG:Bit Synchronization Configuration
     // o bits 7:6: BS_PRE_KI: Clock recovery loop integral gain before sync word
@@ -226,7 +225,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   1 (01): ±3.125 % data rate offset
     //   2 (10): ±6.25 % data rate offset
     //   3 (11): ±12.5 % data rate offset
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_BSCFG,    0x1C); //  Bit synchronization config.
+    TI_CC_SPIWriteReg(TI_CCxxx0_BSCFG,    0x1C); //  Bit synchronization config.
 
     // AGCCTRL2: AGC Control
     // o bits 7:6: MAX_DVGA_GAIN. Allowable DVGA settings
@@ -252,7 +251,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   5 (101): 38 dB
     //   6 (110): 40 dB
     //   7 (111): 42 dB
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_AGCCTRL2, 0xC7); // AGC control.
+    TI_CC_SPIWriteReg(TI_CCxxx0_AGCCTRL2, 0xC7); // AGC control.
 
     // AGCCTRL1: AGC Control
     // o bit 7: not used
@@ -267,7 +266,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     // o bits 3:0: CARRIER_SENSE_ABS_THR: Sets the absolute RSSI threshold for asserting carrier sense. 
     //   The 2-complement signed threshold is programmed in steps of 1 dB and is relative to the MAGN_TARGET setting.
     //   0 is at MAGN_TARGET setting.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_AGCCTRL1, 0x00); // AGC control.
+    TI_CC_SPIWriteReg(TI_CCxxx0_AGCCTRL1, 0x00); // AGC control.
 
     // AGCCTRL0: AGC Control
     // o bits 7:6: HYST_LEVEL: Sets the level of hysteresis on the magnitude deviation
@@ -294,14 +293,14 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   1 (01):       16: 8 dB
     //   2 (10):       32: 12 dB
     //   3 (11):       64: 16 dB  
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_AGCCTRL0, 0xB2); // AGC control.
+    TI_CC_SPIWriteReg(TI_CCxxx0_AGCCTRL0, 0xB2); // AGC control.
 
     // FREND1: Front End RX Configuration
     // o bits 7:6: LNA_CURRENT: Adjusts front-end LNA PTAT current output
     // o bits 5:4: LNA2MIX_CURRENT: Adjusts front-end PTAT outputs
     // o bits 3:2: LODIV_BUF_CURRENT_RX: Adjusts current in RX LO buffer (LO input to mixer)
     // o bits 1:0: MIX_CURRENT: Adjusts current in mixer
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FREND1,   0xB6); // Front end RX configuration.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FREND1,   0xB6); // Front end RX configuration.
 
     // FREND0: Front End TX Configuration
     // o bits 7:6: not used
@@ -313,30 +312,29 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   index to use when transmitting a ‘1’. PATABLE index zero is used in OOK/ASK when transmitting a ‘0’. 
     //   The PATABLE settings from index ‘0’ to the PA_POWER value are used for ASK TX shaping, 
     //   and for power ramp-up/ramp-down at the start/end of transmission in all TX modulation formats.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FREND0,   0x10); // Front end RX configuration.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FREND0,   0x10); // Front end RX configuration.
 
     // FSCAL3: Frequency Synthesizer Calibration
     // o bits 7:6: The value to write in this field before calibration is given by the SmartRF
     //   Studio software.
     // o bits 5:4: CHP_CURR_CAL_EN: Disable charge pump calibration stage when 0.
     // o bits 3:0: FSCAL3: Frequency synthesizer calibration result register.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSCAL3,   0xEA); // Frequency synthesizer cal.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCAL3,   0xEA); // Frequency synthesizer cal.
 
     // FSCAL2: Frequency Synthesizer Calibration
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSCAL2,   0x0A); // Frequency synthesizer cal.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSCAL1,   0x00); // Frequency synthesizer cal.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSCAL0,   0x11); // Frequency synthesizer cal.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_FSTEST,   0x59); // Frequency synthesizer cal.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCAL2,   0x0A); // Frequency synthesizer cal.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCAL1,   0x00); // Frequency synthesizer cal.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCAL0,   0x11); // Frequency synthesizer cal.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSTEST,   0x59); // Frequency synthesizer cal.
 
     // TEST2: Various test settings. The value to write in this field is given by the SmartRF Studio software.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_TEST2,    0x88); // Various test settings.
+    TI_CC_SPIWriteReg(TI_CCxxx0_TEST2,    0x88); // Various test settings.
 
     // TEST1: Various test settings. The value to write in this field is given by the SmartRF Studio software.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_TEST1,    0x31); // Various test settings.
+    TI_CC_SPIWriteReg(TI_CCxxx0_TEST1,    0x31); // Various test settings.
 
     // TEST0: Various test settings. The value to write in this field is given by the SmartRF Studio software.
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_TEST0,    0x09); // Various test settings.
-    */
+    TI_CC_SPIWriteReg(TI_CCxxx0_TEST0,    0x09); // Various test settings.
 }
 
 // ------------------------------------------------------------------------------------------------

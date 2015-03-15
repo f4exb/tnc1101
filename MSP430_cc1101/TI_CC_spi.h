@@ -49,7 +49,7 @@
 // Comments: Initial Release Version
 //------------------------------------------------------------------------------
 
-#define UCLK_DIV 0x0A
+#define UCLK_DIV 0x02 // 8 MHz / 2 = 4 MHz SPI clock
 
 void TI_CC_SPISetup(void);
 void TI_CC_PowerupResetCCxxxx(void);

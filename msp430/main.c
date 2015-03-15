@@ -134,6 +134,7 @@ void main (void)
 // ------------------------------------------------------------------------------------------------
 {
     WDT_A_hold(WDT_A_BASE); // Stop watchdog timer
+    __disable_interrupt();
 
     // Minimum Vcore setting required for the USB API is PMM_CORE_LEVEL_2 .
 #ifndef DRIVERLIB_LEGACY_MODE
@@ -148,6 +149,8 @@ void main (void)
 
     __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
     init_radio_spi();      // Initialize SPI comm with radio module
+
+    __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
 
     __enable_interrupt();  // Enable interrupts globally
 
@@ -219,6 +222,7 @@ void main (void)
                     }
                 }
 
+                __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
                 break; // ST_ENUM_ACTIVE
                 
             // These cases are executed while your device is disconnected from

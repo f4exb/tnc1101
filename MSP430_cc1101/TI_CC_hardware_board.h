@@ -63,26 +63,26 @@
 #define TI_CC_SW3               0x40
 #define TI_CC_SW4               0x80
 
-#define TI_CC_GDO0_PxOUT        P3OUT
-#define TI_CC_GDO0_PxIN         P3IN
-#define TI_CC_GDO0_PxDIR        P3DIR
-#define TI_CC_GDO0_PxIE         P3IE
-#define TI_CC_GDO0_PxIES        P3IES
-#define TI_CC_GDO0_PxIFG        P3IFG
-#define TI_CC_GDO0_PIN          BIT7
+#define TI_CC_GDO0_PxOUT        P2OUT
+#define TI_CC_GDO0_PxIN         P2IN
+#define TI_CC_GDO0_PxDIR        P2DIR
+#define TI_CC_GDO0_PxIE         P2IE
+#define TI_CC_GDO0_PxIES        P2IES
+#define TI_CC_GDO0_PxIFG        P2IFG
+#define TI_CC_GDO0_PIN          BIT5
 
 #define TI_CC_GDO1_PxOUT        P5OUT
 #define TI_CC_GDO1_PxIN         P5IN
 #define TI_CC_GDO1_PxDIR        P5DIR
 #define TI_CC_GDO1_PIN          0x04
 
-#define TI_CC_GDO2_PxOUT        P8OUT
-#define TI_CC_GDO2_PxIN         P8IN
-#define TI_CC_GDO2_PxDIR        P8DIR
-#define TI_CC_GDO2_PxIE         P8IE
-#define TI_CC_GDO2_PxIES        P8IES
-#define TI_CC_GDO2_PxIFG        P8IFG
-#define TI_CC_GDO2_PIN          BIT2
+#define TI_CC_GDO2_PxOUT        P2OUT
+#define TI_CC_GDO2_PxIN         P2IN
+#define TI_CC_GDO2_PxDIR        P2DIR
+#define TI_CC_GDO2_PxIE         P2IE
+#define TI_CC_GDO2_PxIES        P2IES
+#define TI_CC_GDO2_PxIFG        P2IFG
+#define TI_CC_GDO2_PIN          BIT4
 
 #define TI_CC_CSn_PxOUT         P2OUT
 #define TI_CC_CSn_PxDIR         P2DIR
@@ -99,21 +99,21 @@
 #define TI_CC_GREEN_LED         BIT7
 
 // Left switch
+#define TI_CC_SWL_PxOUT         P2OUT
 #define TI_CC_SWL_PxIN          P2IN
 #define TI_CC_SWL_PxIE          P2IE
 #define TI_CC_SWL_PxIES         P2IES
 #define TI_CC_SWL_PxIFG         P2IFG
 #define TI_CC_SWL_PxREN         P2REN
-#define TI_CC_SWL_PxOUT         P2OUT
 #define TI_CC_SWL               BIT1
 
 // Right switch
+#define TI_CC_SWR_PxOUT         P1OUT
 #define TI_CC_SWR_PxIN          P1IN
 #define TI_CC_SWR_PxIE          P1IE
 #define TI_CC_SWR_PxIES         P1IES
 #define TI_CC_SWR_PxIFG         P1IFG
 #define TI_CC_SWR_PxREN         P1REN
-#define TI_CC_SWR_PxOUT         P1OUT
 #define TI_CC_SWR               BIT1
 
 //----------------------------------------------------------------------------

@@ -77,7 +77,7 @@ uint8_t send_ack = 0;                  // Set when an ack is to be sent
 
 static void    init_leds();
 static void    init_left_button(); 
-static void    init_gdo_int(); 
+static void    init_gdo0(); 
 static void    set_red_led(uint8_t on);
 static void    set_green_led(uint8_t on);
 static void    toggle_red_led();
@@ -105,6 +105,16 @@ void init_left_button()
     TI_CC_SWL_PxIE |= TI_CC_SWL;   // Interrupt enabled
     TI_CC_SWL_PxIES |= TI_CC_SWL;  // Hi/lo falling edge
     TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // IFG cleared just in case
+}
+
+// ------------------------------------------------------------------------------------------------
+// Init the CC1101 GDO0 (packet) interrupt
+void init_gdo0()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_GDO0_PxIE |= TI_CC_GDO0_PIN;   // Interrupt enabled
+    TI_CC_GDO0_PxIES |= TI_CC_GDO0_PIN;  // Start with rising edge
+    TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // IFG cleared just in case
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -179,23 +189,14 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     {
         get_radio_status(&dataBuffer[2]);
         dataBuffer[1] = TI_CCxxx0_NUM_STATUS;
-
-        if (cdcSendDataInBackground((uint8_t *) dataBuffer, TI_CCxxx0_NUM_STATUS + 2, CDC0_INTFNUM, 1))
-        {
-            // Exit if something went wrong.
-            return 1;
-        }
+        send_ack = 1;
     }
     else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
     {
         init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
+        init_gdo0();
         dataBuffer[1] = 0;
-
-        if (cdcSendDataInBackground((uint8_t *) dataBuffer, 2, CDC0_INTFNUM, 1))
-        {
-            // Exit if something went wrong.
-            return 1;
-        }
+        send_ack = 1;
     }
 
     return 0;
@@ -224,6 +225,12 @@ void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
     {
         toggle_red_led();
         TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // Clear IFG
+    }
+
+    if (TI_CC_GDO0_PxIFG & TI_CC_GDO0_PIN) // Packet interrupt
+    {
+        toggle_green_led();
+        TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // Clear IFG
     }
 
     __enable_interrupt();  // Enable interrupts globally
@@ -327,6 +334,12 @@ void main (void)
                     }
                 }
 
+                if (send_ack)
+                {
+                    retVal = cdcSendDataInBackground((uint8_t *) dataBuffer, dataBuffer[1] + 2, CDC0_INTFNUM, 1);
+                    send_ack = 0;
+                }
+
                 __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
                 break; // ST_ENUM_ACTIVE
                 
@@ -348,12 +361,6 @@ void main (void)
             // be LPM0 or active-CPU.
             case ST_ENUM_IN_PROGRESS:
             default:;
-        }
-
-        if (send_ack)
-        {
-            retVal = cdcSendDataInBackground((uint8_t *) dataBuffer, dataBuffer[1] + 2, CDC0_INTFNUM, 1);
-            send_ack = 0;
         }
 
         //if (ReceiveError || SendError){

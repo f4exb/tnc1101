@@ -29,6 +29,7 @@ char *tnc_mode_names[] = {
     "KISS TNC",
     "USB echo",
     "Radio status",
+    "Radio init",
     "Radio transmission test"
 };
 
@@ -574,7 +575,11 @@ int main (int argc, char **argv)
     {
         print_radio_status(&serial_parms, &arguments);
     }
-    else if (arguments.tnc_mode == TNC_TEST_RX)
+    else if (arguments.tnc_mode == TNC_RADIO_INIT)
+    {
+        init_radio(&serial_parms, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_TX)
     {
         radio_transmit_test(&serial_parms, &radio_parms, &arguments);
     }

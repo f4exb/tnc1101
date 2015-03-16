@@ -13,8 +13,9 @@ typedef enum tnc_mode_e {
     TNC_KISS = 0,
     TNC_TEST_USB_ECHO,
     TNC_RADIO_STATUS,
-    TNC_TEST_RX,
+    TNC_RADIO_INIT,
     TNC_TEST_TX,
+    TNC_TEST_RX,
     NUM_TNC
 } tnc_mode_t;
 

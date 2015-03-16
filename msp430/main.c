@@ -67,22 +67,24 @@ volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler t
                                                // indicate data has been 
                                                // received into USB buffer
 
-#define BUFFER_SIZE 256
-char dataBuffer[BUFFER_SIZE] = "";
-char nl[2] = "\n";
-uint16_t count;                    
-char outString[65];  // Holds outgoing strings to be sent
+#define BUFFER_SIZE 260                // Command + size + data (size + block countdown + data + RSSI + LQI)
+                                       //       1 +    1         ------------------------- 256 +    1 +   1 
+char    dataBuffer[BUFFER_SIZE] = "";  // Current I/O buffer
+char    outString[65];                 // Holds outgoing strings to be sent
+uint8_t send_ack = 0;                  // Set when an ack is to be sent
 
-// ================================================================================================
+// = Static functions declarations =================================================================
 
 static void    init_leds();
+static void    init_left_button(); 
+static void    init_gdo_int(); 
 static void    set_red_led(uint8_t on);
 static void    set_green_led(uint8_t on);
 static void    toggle_red_led();
 static void    toggle_green_led();
 static uint8_t process_usb_block(uint16_t count, uint8_t *block);
 
-// ================================================================================================
+// = Static functions =============================================================================
 
 // ------------------------------------------------------------------------------------------------
 // Init the board LEDs
@@ -91,6 +93,18 @@ void init_leds()
 {
     TI_CC_RED_LED_PxDIR   = TI_CC_RED_LED;
     TI_CC_GREEN_LED_PxDIR = TI_CC_GREEN_LED;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Init the board left button with interrupt handler
+void init_left_button()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_SWL_PxREN |= TI_CC_SWL;  // Enable pull-up and pull-down
+    TI_CC_SWL_PxOUT = TI_CC_SWL;   // Pull-up
+    TI_CC_SWL_PxIE |= TI_CC_SWL;   // Interrupt enabled
+    TI_CC_SWL_PxIES |= TI_CC_SWL;  // Hi/lo falling edge
+    TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // IFG cleared just in case
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -176,7 +190,6 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     {
         init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
         dataBuffer[1] = 0;
-        toggle_green_led();
 
         if (cdcSendDataInBackground((uint8_t *) dataBuffer, 2, CDC0_INTFNUM, 1))
         {
@@ -188,7 +201,35 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     return 0;
 }
 
-// ================================================================================================
+// = Interrupt handlers ===========================================================================
+
+// ------------------------------------------------------------------------------------------------
+// Port 2 interrupt service routine
+// Left button on P2.1
+// GDO2        on P2.4
+// GDO0        on P2.5
+#if defined(__TI_COMPILER_VERSION__) || (__IAR_SYSTEMS_ICC__)
+#pragma vector = PORT2_VECTOR
+__interrupt void PORT2_ISR (void)
+#elif defined(__GNUC__) && (__MSP430__)
+void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
+#else
+#error Compiler not found!
+#endif
+// ------------------------------------------------------------------------------------------------
+{
+    __disable_interrupt();
+
+    if (TI_CC_SWL_PxIFG & TI_CC_SWL) // Left button
+    {
+        toggle_red_led();
+        TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // Clear IFG
+    }
+
+    __enable_interrupt();  // Enable interrupts globally
+}
+
+// = Main =========================================================================================
 
 // ------------------------------------------------------------------------------------------------
 // Main routine
@@ -212,6 +253,7 @@ void main (void)
     __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
     init_radio_spi();      // Initialize SPI comm with radio module
     init_leds();
+    init_left_button();
 
     __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
 
@@ -306,6 +348,12 @@ void main (void)
             // be LPM0 or active-CPU.
             case ST_ENUM_IN_PROGRESS:
             default:;
+        }
+
+        if (send_ack)
+        {
+            retVal = cdcSendDataInBackground((uint8_t *) dataBuffer, dataBuffer[1] + 2, CDC0_INTFNUM, 1);
+            send_ack = 0;
         }
 
         //if (ReceiveError || SendError){

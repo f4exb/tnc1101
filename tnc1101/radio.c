@@ -88,9 +88,7 @@ static radio_modulation_t get_mod_code(uint8_t mod_word);
 static uint8_t  get_if_word(arguments_t *arguments);
 static void     get_chanbw_words(float bw, msp430_radio_parms_t *radio_parms);
 static void     get_rate_words(arguments_t *arguments, msp430_radio_parms_t *radio_parms);
-static float    radio_get_byte_time(msp430_radio_parms_t *radio_parms);
-static float    radio_get_rate(msp430_radio_parms_t *radio_parms);
-static int      read_usb(serial_t *serial_parms, uint8_t *dataBuffer);
+static int      read_usb(serial_t *serial_parms, uint8_t *dataBuffer, uint32_t timeout);
 /*
 static void     wait_for_state(spi_parms_t *spi_parms, ccxxx0_state_t state, uint32_t timeout);
 static void     print_received_packet(int verbose_min);
@@ -247,41 +245,11 @@ void get_rate_words(arguments_t *arguments, msp430_radio_parms_t *radio_parms)
 }
 
 // ------------------------------------------------------------------------------------------------
-// Get the time to transmit or receive a byte in microseconds
-float radio_get_byte_time(msp430_radio_parms_t *radio_parms)
-// ------------------------------------------------------------------------------------------------
-{
-    float base_time = 8000000.0 / radio_get_rate(radio_parms);
-
-    if (get_mod_code(radio_parms->mod_word) == RADIO_MOD_FSK4)
-    {
-        base_time /= 2.0;
-    }
-
-    if (radio_parms->fec_whitening & 0x01)
-    {
-        base_time *= 2.0;
-    }
-
-    return base_time;
-}
-
-// ------------------------------------------------------------------------------------------------
-// Get the actual data rate in Bauds
-float radio_get_rate(msp430_radio_parms_t *radio_parms)
-// ------------------------------------------------------------------------------------------------
-{
-    float f_xtal = F_XTAL_MHZ * 1e6;
-
-    return ((float) (f_xtal) / (1<<28)) * (256 + radio_parms->drate_m) * (1<<radio_parms->drate_e);
-}
-
-// ------------------------------------------------------------------------------------------------
 // Read USB with timeout
-int read_usb(serial_t *serial_parms, uint8_t *buffer)
+int read_usb(serial_t *serial_parms, uint8_t *buffer, uint32_t timeout)
 // ------------------------------------------------------------------------------------------------
 {
-    int nbytes, timeout = 10000;
+    int nbytes;
 
     do
     {
@@ -407,6 +375,36 @@ void radio_flush_fifos(spi_parms_t *spi_parms)
 */
 
 // ------------------------------------------------------------------------------------------------
+// Get the time to transmit or receive a byte in microseconds
+float radio_get_byte_time(msp430_radio_parms_t *radio_parms)
+// ------------------------------------------------------------------------------------------------
+{
+    float base_time = 8000000.0 / radio_get_rate(radio_parms);
+
+    if (get_mod_code(radio_parms->mod_word) == RADIO_MOD_FSK4)
+    {
+        base_time /= 2.0;
+    }
+
+    if (radio_parms->fec_whitening & 0x01)
+    {
+        base_time *= 2.0;
+    }
+
+    return base_time;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Get the actual data rate in Bauds
+float radio_get_rate(msp430_radio_parms_t *radio_parms)
+// ------------------------------------------------------------------------------------------------
+{
+    float f_xtal = F_XTAL_MHZ * 1e6;
+
+    return ((float) (f_xtal) / (1<<28)) * (256 + radio_parms->drate_m) * (1<<radio_parms->drate_e);
+}
+
+// ------------------------------------------------------------------------------------------------
 // Initialize MSP430-CC1101 radio parameters
 void init_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
@@ -448,7 +446,7 @@ int init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, argume
     nbytes = write_serial(serial_parms, dataBuffer, dataBuffer[1]+2);
     verbprintf(1, "%d bytes written to USB\n", nbytes);
 
-    nbytes = read_usb(serial_parms, dataBuffer);
+    nbytes = read_usb(serial_parms, dataBuffer, 10000);
 
     return nbytes;
 }
@@ -459,7 +457,6 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
     uint8_t *regs;
-    uint32_t timeout;
     int nbytes;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RADIO_STATUS;
@@ -470,7 +467,7 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
     nbytes = write_serial(serial_parms, dataBuffer, 2);
     verbprintf(1, "%d bytes written to USB\n", nbytes);
 
-    nbytes = read_usb(serial_parms, dataBuffer);
+    nbytes = read_usb(serial_parms, dataBuffer, 10000);
 
     if (nbytes > 0)
     {
@@ -539,6 +536,28 @@ void print_radio_parms(msp430_radio_parms_t *radio_parms)
         (uint32_t) (radio_parms->packet_length * radio_get_byte_time(radio_parms)));
     fprintf(stderr, "Byte time ..............: %d us\n",
         ((uint32_t) radio_get_byte_time(radio_parms)));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Send a radio block of maximum 255 bytes
+// dataBlock[0]  is the data block payload size (count from dataBock[2])
+// dataBlock[1]  is the block countdown
+// &dataBlock[2] is the actual data block
+int radio_send_block(serial_t *serial_parms, arguments_t *arguments, uint8_t *dataBlock, uint32_t timeout_us)
+// ------------------------------------------------------------------------------------------------
+{
+    int nbytes;
+
+    dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_TX;
+    dataBuffer[1] = dataBlock[0] + 2;
+    memcpy(&dataBuffer[2], dataBlock, dataBuffer[1]);
+
+    nbytes = write_serial(serial_parms, dataBuffer, 2);
+    verbprintf(2, "%d bytes written to USB\n", nbytes);
+
+    nbytes = read_usb(serial_parms, dataBuffer, timeout_us/10);
+
+    return nbytes;
 }
 
 /*

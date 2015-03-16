@@ -10,6 +10,9 @@
 #include "radio.h"
 #include "TI_CC_CC1100-CC2500.h"
 
+uint8_t bytes_remaining;
+uint8_t bytes_sent;
+
 // ------------------------------------------------------------------------------------------------
 // Initialize SPI radio interface
 void init_radio_spi()
@@ -156,10 +159,10 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   2 (10): Always claar unless receiving a packet
     //   3 (11): Claar if RSSI below threshold unless receiving a packet
     // o bits 3:2: RXOFF_MODE: Select to what state it should go when a packet has been received
-    //   0 (00): IDLE <== 
+    //   0 (00): IDLE 
     //   1 (01): FSTXON
     //   2 (10): TX
-    //   3 (11): RX (stay)
+    //   3 (11): RX (stay) <==
     // o bits 1:0: TXOFF_MODE: Select what should happen when a packet has been sent
     //   0 (00): IDLE <==
     //   1 (01): FSTXON
@@ -352,4 +355,47 @@ void get_radio_status(uint8_t *status_regs)
         status_regs[reg_index - TI_CCxxx0_PARTNUM] = (uint8_t) TI_CC_SPIReadStatus(reg_index);
         reg_index++;
     }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Start sending a block of data up to 255 bytes (packet for CC1101)
+// byte 0  : data block size
+// byte 1  : block countdown
+// byte 2+ : data block
+// returns the number of bytes left to be sent
+uint8_t send_start(uint8_t *dataBlock)
+// ------------------------------------------------------------------------------------------------
+{
+    uint8_t initial_tx_count; // Number of bytes to send in first batch
+
+    bytes_remaining = dataBlock[0] + 2; // initial count
+
+    TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, bytes_remaining); // Packet length.
+    TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x02); // GDO2 output pin config TX mode
+
+    bytes_sent = (bytes_remaining > TI_CCxxx0_FIFO_SIZE-1 ? TI_CCxxx0_FIFO_SIZE-1 : bytes_remaining);
+    TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, dataBlock, bytes_sent);
+    bytes_remaining -= bytes_sent;
+    TI_CC_SPIStrobe(TI_CCxxx0_STX); // Kick-off Tx
+
+    return bytes_remaining;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Send more bytes when Tx FIFO gets depleted
+// returns the number of bytes left to be sent
+uint8_t send_more(uint8_t *dataBlock)
+// ------------------------------------------------------------------------------------------------
+{
+    uint8_t bytes_to_send;
+
+    if (bytes_remaining)
+    {
+        bytes_to_send = (bytes_remaining < TX_FIFO_REFILL ? bytes_remaining : TX_FIFO_REFILL);
+        TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, &dataBlock[bytes_sent], bytes_to_send);
+        bytes_remaining -= bytes_to_send;
+        bytes_sent += bytes_to_send;
+    }
+
+    return bytes_remaining;
 }

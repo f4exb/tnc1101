@@ -64,6 +64,17 @@ Additional folders:
   - The interface with the CC1101 module is located in `MSP430_cc1101`
   - Common files interfacing host and MCU software are located in the `common` folder
 
+#Connecting the CC1101 module
+In most cases the 8-pin head layout on the CC1101 is the following seen from the pin side:
+ <pre><code>
+    +-----+
+MISO|.7 8.|GDO2
+ SCK|.5 6.|MOSI
+GDO0|.3 4.|CSn
+ GND|.1 2.|VCC
+    +-----+
+</code></pre>
+
 # AX.25/KISS operation
 
 

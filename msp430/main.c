@@ -72,6 +72,7 @@ volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler t
 char    dataBuffer[BUFFER_SIZE] = "";  // Current I/O buffer
 char    outString[65];                 // Holds outgoing strings to be sent
 uint8_t send_ack = 0;                  // Set when an ack is to be sent
+uint8_t rtx_toggle = 0;                // 0: Rx - 1: Tx
 
 // = Static functions declarations =================================================================
 
@@ -198,6 +199,17 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
         dataBuffer[1] = 0;
         send_ack = 1;
     }
+    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_TX)
+    {
+        rtx_toggle = 1;
+        
+        if (send_start(&dataBuffer[2])) // if bytes are left to be sent activate threshold interrupt 
+        {
+            TI_CC_GDO2_PxIE |= TI_CC_GDO2_PIN;   // Interrupt enabled
+            TI_CC_GDO2_PxIES &= ~TI_CC_GDO2_PIN; // Threshold on falling edge - Tx FIFO depletion
+            TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
+        }
+    }
 
     return 0;
 }
@@ -223,14 +235,42 @@ void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
 
     if (TI_CC_SWL_PxIFG & TI_CC_SWL) // Left button
     {
-        toggle_red_led();
+        set_red_led(0);
+        set_green_led(0);
         TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // Clear IFG
     }
 
     if (TI_CC_GDO0_PxIFG & TI_CC_GDO0_PIN) // Packet interrupt
     {
-        toggle_green_led();
+        if (rtx_toggle) // Tx-ing
+        {
+            if (TI_CC_GDO0_PxIN & TI_CC_GDO0_PIN) // rising edge = start of packet
+            {
+                set_red_led(1);
+            }
+            else // falling edge = end of packet
+            {
+                dataBuffer[1] = 0;
+                send_ack = 1;
+                set_red_led(0);
+            }
+        }
+
+        TI_CC_GDO0_PxIES ^= TI_CC_GDO0_PIN;  // Enable next edge
         TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // Clear IFG
+    }
+
+    if (TI_CC_GDO2_PxIFG & TI_CC_GDO2_PIN) // FIFO threshold interrupt
+    {
+        if (rtx_toggle) // Tx-ing
+        {
+            if (!send_more(&dataBuffer[2])) // if no more bytes are left to be sent de-activate threshold interrupt
+            {
+                TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
+            }
+        }
+
+        TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // Clear IFG
     }
 
     __enable_interrupt();  // Enable interrupts globally

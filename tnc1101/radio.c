@@ -74,7 +74,9 @@ float chanbw_limits[] = {
     58000.0
 };
 
-uint8_t  dataBuffer[255+2];
+#define DATA_BUFFER_SIZE 257
+
+uint8_t  dataBuffer[DATA_BUFFER_SIZE];
 uint32_t blocks_sent;
 uint32_t blocks_received;
 uint32_t packets_sent;
@@ -88,7 +90,7 @@ static radio_modulation_t get_mod_code(uint8_t mod_word);
 static uint8_t  get_if_word(arguments_t *arguments);
 static void     get_chanbw_words(float bw, msp430_radio_parms_t *radio_parms);
 static void     get_rate_words(arguments_t *arguments, msp430_radio_parms_t *radio_parms);
-static int      read_usb(serial_t *serial_parms, uint8_t *dataBuffer, uint32_t timeout);
+static int      read_usb(serial_t *serial_parms, uint8_t *dataBuffer, int size, uint32_t timeout);
 /*
 static void     wait_for_state(spi_parms_t *spi_parms, ccxxx0_state_t state, uint32_t timeout);
 static void     print_received_packet(int verbose_min);
@@ -246,14 +248,14 @@ void get_rate_words(arguments_t *arguments, msp430_radio_parms_t *radio_parms)
 
 // ------------------------------------------------------------------------------------------------
 // Read USB with timeout
-int read_usb(serial_t *serial_parms, uint8_t *buffer, uint32_t timeout)
+int read_usb(serial_t *serial_parms, uint8_t *buffer, int size, uint32_t timeout)
 // ------------------------------------------------------------------------------------------------
 {
     int nbytes;
 
     do
     {
-        nbytes = read_serial(serial_parms, buffer, 14);
+        nbytes = read_serial(serial_parms, buffer, size);
         usleep(10);
         timeout--;
     } while ((nbytes <= 0) && (timeout > 0));
@@ -446,7 +448,7 @@ int init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, argume
     nbytes = write_serial(serial_parms, dataBuffer, dataBuffer[1]+2);
     verbprintf(1, "%d bytes written to USB\n", nbytes);
 
-    nbytes = read_usb(serial_parms, dataBuffer, 10000);
+    nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
     return nbytes;
 }
@@ -467,7 +469,7 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
     nbytes = write_serial(serial_parms, dataBuffer, 2);
     verbprintf(1, "%d bytes written to USB\n", nbytes);
 
-    nbytes = read_usb(serial_parms, dataBuffer, 10000);
+    nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
     if (nbytes > 0)
     {
@@ -543,19 +545,30 @@ void print_radio_parms(msp430_radio_parms_t *radio_parms)
 // dataBlock[0]  is the data block payload size (count from dataBock[2])
 // dataBlock[1]  is the block countdown
 // &dataBlock[2] is the actual data block
-int radio_send_block(serial_t *serial_parms, arguments_t *arguments, uint8_t *dataBlock, uint32_t timeout_us)
+// ackblock      is the acknowledgement block
+// ackBlockSize  (input)  is the acknowledgement block allocated size
+//               (output) is the actual acknowledgement block size
+// timeout_us    is the acknowledgement timeout in microseconds
+// returns       the number of bytes sent over USB
+int radio_send_block(serial_t *serial_parms, 
+        arguments_t *arguments, 
+        uint8_t     *dataBlock, 
+        uint8_t     *ackBlock, 
+        int         *ackBlockSize, 
+        uint32_t    timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
-    int nbytes;
+    int nbytes, ackbytes;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_TX;
     dataBuffer[1] = dataBlock[0] + 2;
     memcpy(&dataBuffer[2], dataBlock, dataBuffer[1]);
 
-    nbytes = write_serial(serial_parms, dataBuffer, 2);
+    nbytes = write_serial(serial_parms, dataBuffer, dataBuffer[1]+2);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
 
-    nbytes = read_usb(serial_parms, dataBuffer, timeout_us/10);
+    ackbytes = read_usb(serial_parms, ackBlock, *ackBlockSize, timeout_us/10);
+    *ackBlockSize = ackbytes;
 
     return nbytes;
 }

@@ -384,7 +384,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
             break; 
         // Packet length
         case 'P':
-            arguments->packet_length = strtol(arg, &end, 10) % 256;
+            arguments->packet_length = strtol(arg, &end, 10) % 254;
             if (*end)
                 argp_usage(state);
             break; 

@@ -358,12 +358,12 @@ void get_radio_status(uint8_t *status_regs)
 }
 
 // ------------------------------------------------------------------------------------------------
-// Start sending a block of data up to 255 bytes (packet for CC1101)
+// Setup for sending a block of data up to 255 bytes (packet for CC1101)
 // byte 0  : data block size
 // byte 1  : block countdown
 // byte 2+ : data block
 // returns the number of bytes left to be sent
-uint8_t send_start(uint8_t *dataBlock)
+uint8_t send_setup(uint8_t *dataBlock)
 // ------------------------------------------------------------------------------------------------
 {
     uint8_t initial_tx_count; // Number of bytes to send in first batch
@@ -376,7 +376,6 @@ uint8_t send_start(uint8_t *dataBlock)
     bytes_sent = (bytes_remaining > TI_CCxxx0_FIFO_SIZE-1 ? TI_CCxxx0_FIFO_SIZE-1 : bytes_remaining);
     TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, dataBlock, bytes_sent);
     bytes_remaining -= bytes_sent;
-    TI_CC_SPIStrobe(TI_CCxxx0_STX); // Kick-off Tx
 
     return bytes_remaining;
 }
@@ -398,4 +397,12 @@ uint8_t send_more(uint8_t *dataBlock)
     }
 
     return bytes_remaining;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Kick-off Tx
+void start_tx()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_SPIStrobe(TI_CCxxx0_STX); 
 }

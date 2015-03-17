@@ -74,11 +74,14 @@ char    outString[65];                 // Holds outgoing strings to be sent
 uint8_t send_ack = 0;                  // Set when an ack is to be sent
 uint8_t rtx_toggle = 0;                // 0: Rx - 1: Tx
 
+uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_f;
+
 // = Static functions declarations =================================================================
 
 static void    init_leds();
 static void    init_left_button(); 
-static void    init_gdo0(); 
+static void    init_gdo0();
+static void    init_gdo0_int();
 static void    set_red_led(uint8_t on);
 static void    set_green_led(uint8_t on);
 static void    toggle_red_led();
@@ -92,8 +95,10 @@ static uint8_t process_usb_block(uint16_t count, uint8_t *block);
 void init_leds()
 // ------------------------------------------------------------------------------------------------
 {
-    TI_CC_RED_LED_PxDIR   = TI_CC_RED_LED;
-    TI_CC_GREEN_LED_PxDIR = TI_CC_GREEN_LED;
+    TI_CC_RED_LED_PxDIR   |=  TI_CC_RED_LED;
+    TI_CC_GREEN_LED_PxDIR |=  TI_CC_GREEN_LED;
+    TI_CC_RED_LED_PxOUT   &= ~TI_CC_RED_LED;
+    TI_CC_GREEN_LED_PxOUT &= ~TI_CC_GREEN_LED;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -101,20 +106,37 @@ void init_leds()
 void init_left_button()
 // ------------------------------------------------------------------------------------------------
 {
-    TI_CC_SWL_PxREN |= TI_CC_SWL;  // Enable pull-up and pull-down
-    TI_CC_SWL_PxOUT = TI_CC_SWL;   // Pull-up
-    TI_CC_SWL_PxIE |= TI_CC_SWL;   // Interrupt enabled
-    TI_CC_SWL_PxIES |= TI_CC_SWL;  // Hi/lo falling edge
+    TI_CC_SWL_PxREN |=  TI_CC_SWL; // Enable pull-up and pull-down
+    TI_CC_SWL_PxOUT |=  TI_CC_SWL; // Pull-up
+    TI_CC_SWL_PxIE  |=  TI_CC_SWL; // Interrupt enabled
+    TI_CC_SWL_PxIES |=  TI_CC_SWL; // Hi/lo falling edge
     TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // IFG cleared just in case
 }
 
 // ------------------------------------------------------------------------------------------------
-// Init the CC1101 GDO0 (packet) interrupt
-void init_gdo0()
+// Init GDOx lines
+void init_gdo()
 // ------------------------------------------------------------------------------------------------
 {
-    TI_CC_GDO0_PxIE |= TI_CC_GDO0_PIN;   // Interrupt enabled
-    TI_CC_GDO0_PxIES |= TI_CC_GDO0_PIN;  // Start with rising edge
+    TI_CC_GDO0_PxSEL &= ~TI_CC_GDO0_PIN; // Set GDO0 as GPIO
+    TI_CC_GDO2_PxSEL &= ~TI_CC_GDO2_PIN; // Set GDO2 as GPIO
+    TI_CC_GDO0_PxDIR &= ~TI_CC_GDO0_PIN; // Set GDO0 as input
+    TI_CC_GDO2_PxDIR &= ~TI_CC_GDO2_PIN; // Set GDO2 as input
+    TI_CC_GDO0_PxREN |=  TI_CC_GDO0_PIN; // Enable pull-up and pull-down
+    TI_CC_GDO0_PxOUT &= ~TI_CC_GDO0_PIN; // Pull-down
+    TI_CC_GDO2_PxREN |=  TI_CC_GDO2_PIN; // Enable pull-up and pull-down
+    TI_CC_GDO2_PxOUT &= ~TI_CC_GDO2_PIN; // Pull-down
+    TI_CC_GDO0_PxIE  &= ~TI_CC_GDO0_PIN; // Interrupt disabled
+    TI_CC_GDO2_PxIE  &= ~TI_CC_GDO2_PIN; // Interrupt disabled
+}
+
+// ------------------------------------------------------------------------------------------------
+// Init the CC1101 GDO0 (packet) interrupt
+void init_gdo0_int()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_GDO0_PxIE  |=  TI_CC_GDO0_PIN; // Interrupt enabled
+    TI_CC_GDO0_PxIES &= ~TI_CC_GDO0_PIN; // Start with rising edge
     TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // IFG cleared just in case
 }
 
@@ -195,20 +217,24 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
     {
         init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
-        init_gdo0();
         dataBuffer[1] = 0;
         send_ack = 1;
     }
     else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_TX)
     {
         rtx_toggle = 1;
-        
-        if (send_start(&dataBuffer[2])) // if bytes are left to be sent activate threshold interrupt 
+        /*
+        if (send_setup(&dataBuffer[2])) // if bytes are left to be sent activate threshold interrupt 
         {
             TI_CC_GDO2_PxIE |= TI_CC_GDO2_PIN;   // Interrupt enabled
-            TI_CC_GDO2_PxIES &= ~TI_CC_GDO2_PIN; // Threshold on falling edge - Tx FIFO depletion
+            TI_CC_GDO2_PxIES |= TI_CC_GDO2_PIN;  // Threshold on falling edge (hi->lo) - Tx FIFO depletion
             TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
         }
+        */
+        send_setup(&dataBuffer[2]);
+        init_gdo0_int();
+        set_red_led(0);
+        start_tx();
     }
 
     return 0;
@@ -217,10 +243,88 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
 // = Interrupt handlers ===========================================================================
 
 // ------------------------------------------------------------------------------------------------
+// Port 1 interrupt service routine
+// GDO2        on P1.4
+// GDO0        on P1.5
+#if defined(__TI_COMPILER_VERSION__) || (__IAR_SYSTEMS_ICC__)
+#pragma vector = PORT1_VECTOR
+__interrupt void PORT1_ISR (void)
+#elif defined(__GNUC__) && (__MSP430__)
+void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
+#else
+#error Compiler not found!
+#endif
+// ------------------------------------------------------------------------------------------------
+{
+    __disable_interrupt();
+
+    switch (__even_in_range(P1IV,16))
+    {
+        case 0:  // No interrupt
+            break;
+        case 2:  // P1.0
+            break;
+        case 4:  // P1.1 
+            break;
+        case 6:  // P1.2
+            break;
+        case 8:  // P1.3
+            break;
+        case 10: // P1.4 : FIFO threshold interrupt
+            if (rtx_toggle) // Tx-ing
+            {
+                toggle_green_led();
+                gdo2_f++;
+                if (!send_more(&dataBuffer[2])) // if no more bytes are left to be sent de-activate threshold interrupt
+                {
+                    TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
+                }
+            }
+
+            TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // Clear IFG
+            break;
+        case 12:  // P1.5 : Packet interrupt
+            if (rtx_toggle) // Tx-ing
+            {
+                toggle_red_led();
+
+                if ((TI_CC_GDO0_PxIES & TI_CC_GDO0_PIN) == 0) // rising edge 
+                //if ((TI_CC_GDO0_PxIN & TI_CC_GDO0_PIN) != 0) // rising edge = start of packet
+                {
+                    gdo0_r++;
+                    TI_CC_GDO0_PxIES |= TI_CC_GDO0_PIN;  // Enable falling edge (hi->lo)
+                }
+                else // falling edge = end of packet
+                {
+                    gdo0_f++;
+                    dataBuffer[1] = 8;
+                    dataBuffer[2] = gdo0_r;
+                    dataBuffer[3] = gdo0_f;
+                    dataBuffer[4] = gdo2_r;
+                    dataBuffer[5] = gdo2_f;
+                    dataBuffer[6] = TI_CC_GDO0_PxIN;
+                    dataBuffer[7] = TI_CC_GDO0_PxIFG;
+                    dataBuffer[8] = TI_CC_GDO0_PxIE;
+                    dataBuffer[9] = TI_CC_GDO0_PxIES;
+                    send_ack = 1;
+                    TI_CC_GDO0_PxIE &= ~TI_CC_GDO0_PIN;   // Interrupt disabled
+                }
+            }
+
+            TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // Clear IFG
+            break;
+        case 14:  // P1.6
+            break;
+        case 16:  // P1.7
+            break;
+    }
+
+    __enable_interrupt();  // Enable interrupts globally
+}
+
+// ------------------------------------------------------------------------------------------------
 // Port 2 interrupt service routine
 // Left button on P2.1
-// GDO2        on P2.4
-// GDO0        on P2.5
 #if defined(__TI_COMPILER_VERSION__) || (__IAR_SYSTEMS_ICC__)
 #pragma vector = PORT2_VECTOR
 __interrupt void PORT2_ISR (void)
@@ -233,44 +337,29 @@ void __attribute__ ((interrupt(PORT2_VECTOR))) PORT2_ISR (void)
 {
     __disable_interrupt();
 
-    if (TI_CC_SWL_PxIFG & TI_CC_SWL) // Left button
+    switch (__even_in_range(P2IV,16))
     {
-        set_red_led(0);
-        set_green_led(0);
-        TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // Clear IFG
-    }
-
-    if (TI_CC_GDO0_PxIFG & TI_CC_GDO0_PIN) // Packet interrupt
-    {
-        if (rtx_toggle) // Tx-ing
-        {
-            if (TI_CC_GDO0_PxIN & TI_CC_GDO0_PIN) // rising edge = start of packet
-            {
-                set_red_led(1);
-            }
-            else // falling edge = end of packet
-            {
-                dataBuffer[1] = 0;
-                send_ack = 1;
-                set_red_led(0);
-            }
-        }
-
-        TI_CC_GDO0_PxIES ^= TI_CC_GDO0_PIN;  // Enable next edge
-        TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // Clear IFG
-    }
-
-    if (TI_CC_GDO2_PxIFG & TI_CC_GDO2_PIN) // FIFO threshold interrupt
-    {
-        if (rtx_toggle) // Tx-ing
-        {
-            if (!send_more(&dataBuffer[2])) // if no more bytes are left to be sent de-activate threshold interrupt
-            {
-                TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
-            }
-        }
-
-        TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // Clear IFG
+        case 0:  // No interrupt
+            break;
+        case 2:  // P2.0
+            break;
+        case 4:  // P2.1 : Left button
+            toggle_red_led(0);
+            set_green_led(0);
+            TI_CC_SWL_PxIFG &= ~TI_CC_SWL; // Clear IFG
+            break;
+        case 6:  // P2.2
+            break;
+        case 8:  // P2.3
+            break;
+        case 10: // P2.4
+            break;
+        case 12: // P2.5 
+            break;
+        case 14: // P2.6
+            break;
+        case 16: // P2.7
+            break;
     }
 
     __enable_interrupt();  // Enable interrupts globally
@@ -300,9 +389,21 @@ void main (void)
     __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
     init_radio_spi();      // Initialize SPI comm with radio module
     init_leds();
-    init_left_button();
 
-    __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
+    P1IE  = 0;
+    P1IFG = 0;
+    P2IE  = 0;
+    P2IFG = 0;
+
+    gdo0_r = 0;
+    gdo0_f = 0;
+    gdo2_r = 0;
+    gdo2_f = 0;
+
+    init_left_button();
+    init_gdo();
+
+    //__bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
 
     __enable_interrupt();  // Enable interrupts globally
 
@@ -380,7 +481,7 @@ void main (void)
                     send_ack = 0;
                 }
 
-                __bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
+                //__bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
                 break; // ST_ENUM_ACTIVE
                 
             // These cases are executed while your device is disconnected from
@@ -390,7 +491,7 @@ void main (void)
             case ST_PHYS_DISCONNECTED:
             case ST_ENUM_SUSPENDED:
             case ST_PHYS_CONNECTED_NOENUM_SUSP:
-                __bis_SR_register(LPM3_bits + GIE);
+                //__bis_SR_register(LPM3_bits + GIE);
                 _NOP();
                 break;
 

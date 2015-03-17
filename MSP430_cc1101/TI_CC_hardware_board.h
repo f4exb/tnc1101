@@ -63,12 +63,14 @@
 #define TI_CC_SW3               0x40
 #define TI_CC_SW4               0x80
 
-#define TI_CC_GDO0_PxOUT        P2OUT
-#define TI_CC_GDO0_PxIN         P2IN
-#define TI_CC_GDO0_PxDIR        P2DIR
-#define TI_CC_GDO0_PxIE         P2IE
-#define TI_CC_GDO0_PxIES        P2IES
-#define TI_CC_GDO0_PxIFG        P2IFG
+#define TI_CC_GDO0_PxOUT        P1OUT
+#define TI_CC_GDO0_PxIN         P1IN
+#define TI_CC_GDO0_PxDIR        P1DIR
+#define TI_CC_GDO0_PxREN        P1REN
+#define TI_CC_GDO0_PxSEL        P1SEL
+#define TI_CC_GDO0_PxIE         P1IE
+#define TI_CC_GDO0_PxIES        P1IES
+#define TI_CC_GDO0_PxIFG        P1IFG
 #define TI_CC_GDO0_PIN          BIT5
 
 #define TI_CC_GDO1_PxOUT        P5OUT
@@ -76,12 +78,14 @@
 #define TI_CC_GDO1_PxDIR        P5DIR
 #define TI_CC_GDO1_PIN          0x04
 
-#define TI_CC_GDO2_PxOUT        P2OUT
-#define TI_CC_GDO2_PxIN         P2IN
-#define TI_CC_GDO2_PxDIR        P2DIR
-#define TI_CC_GDO2_PxIE         P2IE
-#define TI_CC_GDO2_PxIES        P2IES
-#define TI_CC_GDO2_PxIFG        P2IFG
+#define TI_CC_GDO2_PxOUT        P1OUT
+#define TI_CC_GDO2_PxIN         P1IN
+#define TI_CC_GDO2_PxDIR        P1DIR
+#define TI_CC_GDO2_PxREN        P1REN
+#define TI_CC_GDO2_PxSEL        P1SEL
+#define TI_CC_GDO2_PxIE         P1IE
+#define TI_CC_GDO2_PxIES        P1IES
+#define TI_CC_GDO2_PxIFG        P1IFG
 #define TI_CC_GDO2_PIN          BIT4
 
 #define TI_CC_CSn_PxOUT         P2OUT
@@ -90,11 +94,13 @@
 
 // Red LED
 #define TI_CC_RED_LED_PxOUT     P1OUT
+#define TI_CC_RED_LED_PxIN      P1IN
 #define TI_CC_RED_LED_PxDIR     P1DIR
 #define TI_CC_RED_LED           BIT0
 
 // Green LED
 #define TI_CC_GREEN_LED_PxOUT   P4OUT
+#define TI_CC_GREEN_LED_PxIN    P4IN
 #define TI_CC_GREEN_LED_PxDIR   P4DIR
 #define TI_CC_GREEN_LED         BIT7
 

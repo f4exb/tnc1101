@@ -223,15 +223,15 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_TX)
     {
         rtx_toggle = 1;
-        /*
+        
         if (send_setup(&dataBuffer[2])) // if bytes are left to be sent activate threshold interrupt 
         {
             TI_CC_GDO2_PxIE |= TI_CC_GDO2_PIN;   // Interrupt enabled
             TI_CC_GDO2_PxIES |= TI_CC_GDO2_PIN;  // Threshold on falling edge (hi->lo) - Tx FIFO depletion
             TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
         }
-        */
-        send_setup(&dataBuffer[2]);
+        
+        //send_setup(&dataBuffer[2]);
         init_gdo0_int();
         set_red_led(0);
         start_tx();

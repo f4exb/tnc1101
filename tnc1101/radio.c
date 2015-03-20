@@ -248,17 +248,18 @@ void get_rate_words(arguments_t *arguments, msp430_radio_parms_t *radio_parms)
 
 // ------------------------------------------------------------------------------------------------
 // Read USB with timeout
-int read_usb(serial_t *serial_parms, uint8_t *buffer, int size, uint32_t timeout)
+int read_usb(serial_t *serial_parms, uint8_t *buffer, int size, uint32_t timeout_value)
 // ------------------------------------------------------------------------------------------------
 {
-    int nbytes;
+    int      nbytes;
+    uint32_t timeout = timeout_value;
 
     do
     {
         nbytes = read_serial(serial_parms, buffer, size);
         usleep(10);
         timeout--;
-    } while ((nbytes <= 0) && (timeout > 0));
+    } while ((nbytes <= 0) && ((timeout_value == 0) || (timeout > 0)));
 
     return nbytes;
 }
@@ -573,6 +574,43 @@ int radio_send_block(serial_t *serial_parms,
     return nbytes;
 }
 
+// ------------------------------------------------------------------------------------------------
+// Receive of a block
+uint8_t radio_receive_block(serial_t *serial_parms, 
+        arguments_t *arguments, 
+        uint8_t     *dataBlock, 
+        uint32_t    *size, 
+        uint8_t     *crc)
+// ------------------------------------------------------------------------------------------------
+{
+    int     nbytes;
+    uint8_t data_count;
+
+    dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX;
+    dataBuffer[1] = arguments->packet_length;
+
+    nbytes = write_serial(serial_parms, dataBuffer, 2);
+    verbprintf(2, "%d bytes written to USB\n", nbytes);
+
+    nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 0);
+    verbprintf(2, "%d bytes read from USB\n", nbytes);
+
+    if (nbytes >= 4)
+    {
+        print_block(3, dataBuffer, nbytes);
+        data_count = dataBuffer[2];
+        *size += data_count;
+        memcpy(dataBlock, &dataBuffer[4], data_count);
+        *crc = (dataBuffer[data_count + 4 + 1] & 0x80)>>7;
+        return dataBuffer[3]; // block countdown
+    }
+    else
+    {
+        *crc = 0;
+        return 0;
+    }
+}
+
 /*
 // ------------------------------------------------------------------------------------------------
 // Set packet length
@@ -625,34 +663,6 @@ void radio_init_rx(spi_parms_t *spi_parms, arguments_t *arguments)
     radio_set_packet_length(spi_parms, arguments->packet_length);
     
     PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_IOCFG2, 0x00); // GDO2 output pin config RX mode
-}
-
-// ------------------------------------------------------------------------------------------------
-// Receive of a block
-uint8_t radio_receive_block(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *block, uint32_t *size, uint8_t *crc)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t block_countdown, block_size;
-
-    block_size = radio_int_data.rx_buf[0] - 1; // remove block countdown byte
-    block_countdown = radio_int_data.rx_buf[1];
-
-    if (arguments->variable_length)
-    {
-        *crc = (radio_int_data.rx_buf[radio_int_data.rx_count - 1] & 0x80)>>7;
-    }
-    else
-    {
-        *crc = (radio_int_data.rx_buf[arguments->packet_length + 1] & 0x80)>>7;
-    }
-
-    memcpy(block, (uint8_t *) &radio_int_data.rx_buf[2], block_size);
-    *size += block_size;
-
-    verbprintf(1, "Rx: packet #%d:%d >%d\n", radio_int_data.packet_rx_count, block_countdown, *size);
-    print_received_packet(2);
-
-    return block_countdown; // block countdown
 }
 
 // ------------------------------------------------------------------------------------------------

@@ -11,7 +11,9 @@
 #include "TI_CC_CC1100-CC2500.h"
 
 uint8_t bytes_remaining;
-uint8_t bytes_sent;
+uint8_t bytes_processed;
+uint8_t fixed_packet_length;
+uint8_t *pDataBlock;
 
 // ------------------------------------------------------------------------------------------------
 // Initialize SPI radio interface
@@ -44,10 +46,10 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     // FIFO underflows:    
     TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG0,   0x06); // GDO0 output pin config.
 
-    // FIFO_THR = 14: 
+    // FIFO_THR = 14 (defined in RTX_THR_NORM in radio.h): 
     // o 5 bytes in TX FIFO (55 available spaces)
     // o 60 bytes in the RX FIFO
-    TI_CC_SPIWriteReg(TI_CCxxx0_FIFOTHR,  0x0E); // FIFO threshold.
+    TI_CC_SPIWriteReg(TI_CCxxx0_FIFOTHR,  RTX_THR_NORM); // FIFO threshold.
 
     // PKTLEN: packet length up to 255 bytes. 
     TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, radio_parms->packet_length); // Packet length.
@@ -159,16 +161,16 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   2 (10): Always claar unless receiving a packet
     //   3 (11): Claar if RSSI below threshold unless receiving a packet
     // o bits 3:2: RXOFF_MODE: Select to what state it should go when a packet has been received
-    //   0 (00): IDLE 
+    //   0 (00): IDLE      <==
     //   1 (01): FSTXON
     //   2 (10): TX
-    //   3 (11): RX (stay) <==
+    //   3 (11): RX (stay) 
     // o bits 1:0: TXOFF_MODE: Select what should happen when a packet has been sent
-    //   0 (00): IDLE <==
+    //   0 (00): IDLE      <==
     //   1 (01): FSTXON
     //   2 (10): TX (stay)
     //   3 (11): RX 
-    TI_CC_SPIWriteReg(TI_CCxxx0_MCSM1 ,   0x3C); //MainRadio Cntrl State Machine
+    TI_CC_SPIWriteReg(TI_CCxxx0_MCSM1 ,   0x30); //MainRadio Cntrl State Machine
 
     // MCSM0: Main Radio State Machine.
     // o bits 7:6: not used
@@ -373,9 +375,9 @@ uint8_t send_setup(uint8_t *dataBlock)
     TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, bytes_remaining); // Packet length.
     TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x02); // GDO2 output pin config TX mode
 
-    bytes_sent = (bytes_remaining > TI_CCxxx0_FIFO_SIZE-1 ? TI_CCxxx0_FIFO_SIZE-1 : bytes_remaining);
-    TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, dataBlock, bytes_sent);
-    bytes_remaining -= bytes_sent;
+    bytes_processed = (bytes_remaining > TI_CCxxx0_FIFO_SIZE-1 ? TI_CCxxx0_FIFO_SIZE-1 : bytes_remaining);
+    TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, dataBlock, bytes_processed);
+    bytes_remaining -= bytes_processed;
 
     return bytes_remaining;
 }
@@ -391,9 +393,9 @@ uint8_t send_more(uint8_t *dataBlock)
     if (bytes_remaining)
     {
         bytes_to_send = (bytes_remaining < TX_FIFO_REFILL ? bytes_remaining : TX_FIFO_REFILL);
-        TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, &dataBlock[bytes_sent], bytes_to_send);
+        TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, &dataBlock[bytes_processed], bytes_to_send);
         bytes_remaining -= bytes_to_send;
-        bytes_sent += bytes_to_send;
+        bytes_processed += bytes_to_send;
     }
 
     return bytes_remaining;
@@ -405,4 +407,104 @@ void start_tx()
 // ------------------------------------------------------------------------------------------------
 {
     TI_CC_SPIStrobe(TI_CCxxx0_STX); 
+}
+
+// ------------------------------------------------------------------------------------------------
+// Called at end of transmission (end of packet condition on GDO0)
+// Just retrieves the TX FIFO status
+uint8_t transmit_end()
+// ------------------------------------------------------------------------------------------------
+{
+    uint8_t status;
+
+    status = TI_CC_SPIReadStatus(TI_CCxxx0_TXBYTES);
+
+    return status;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Called on GDO02 first threshold rising edge. At this time the counter has just been received
+// Set up counter and change threshold back to normal
+void receive_begin()
+// ------------------------------------------------------------------------------------------------
+{
+    pDataBlock[0] = TI_CC_SPIReadReg(TI_CCxxx0_RXFIFO);
+
+    if (fixed_packet_length)
+    {
+        bytes_remaining = fixed_packet_length;
+    }
+    else
+    {
+        bytes_remaining = pDataBlock[0];
+        TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, bytes_remaining+2); // correct packet length
+    }
+
+    bytes_remaining += 2; // + RSSI + LQI
+    bytes_processed = 1;
+
+    TI_CC_SPIWriteReg(TI_CCxxx0_FIFOTHR, RTX_THR_NORM); // FIFO normal threshold.
+}
+
+// ------------------------------------------------------------------------------------------------
+// Called in the middle of reception on GDO2 rising edge with normal threshold
+// Read bytes to drain the Rx FIFO enough
+void receive_more()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_SPIReadBurstReg(TI_CCxxx0_RXFIFO, &pDataBlock[bytes_processed], RX_FIFO_UNLOAD);
+    bytes_remaining -= RX_FIFO_UNLOAD;
+    bytes_processed += RX_FIFO_UNLOAD;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Called at end of reception (end of packet condition on GDO0)
+// Finish reading Rx FIFO
+// Reads RX FIFO status
+uint8_t receive_end()
+// ------------------------------------------------------------------------------------------------
+{
+    uint8_t status;
+
+    TI_CC_SPIReadBurstReg(TI_CCxxx0_RXFIFO, &pDataBlock[bytes_processed], bytes_remaining);
+    bytes_remaining = 0;
+    bytes_processed += bytes_remaining;
+
+    status = TI_CC_SPIReadStatus(TI_CCxxx0_RXBYTES);
+
+    return (status & 0x80)>>7;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Set up for reception
+void receive_setup(uint8_t *dataBlock)
+// ------------------------------------------------------------------------------------------------
+{
+    bytes_remaining = dataBlock[0] + 2; // + RSSI + LQI
+    bytes_processed = 0;
+    pDataBlock = &dataBlock[1];
+    TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, dataBlock[0]);
+    TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x00); // GDO2 output pin config RX mode
+}
+
+// ------------------------------------------------------------------------------------------------
+// Kick-off Rx
+void start_rx()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_SPIStrobe(TI_CCxxx0_SRX);
+}
+
+// ------------------------------------------------------------------------------------------------
+void flush_rx_fifo()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_SPIStrobe(TI_CCxxx0_SFRX); // Flush Rx FIFO
+}
+
+// ------------------------------------------------------------------------------------------------
+void flush_tx_fifo()
+// ------------------------------------------------------------------------------------------------
+{
+    TI_CC_SPIStrobe(TI_CCxxx0_SFTX); // Flush Rx FIFO
 }

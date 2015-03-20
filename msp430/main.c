@@ -73,8 +73,9 @@ char    dataBuffer[BUFFER_SIZE] = "";  // Current I/O buffer
 char    outString[65];                 // Holds outgoing strings to be sent
 uint8_t send_ack = 0;                  // Set when an ack is to be sent
 uint8_t rtx_toggle = 0;                // 0: Rx - 1: Tx
+uint8_t rx_start = 0;                  // start of Rx operation / rx on-going
 
-uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_f;
+uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_r1, gdo2_f;
 
 // = Static functions declarations =================================================================
 
@@ -135,9 +136,9 @@ void init_gdo()
 void init_gdo0_int()
 // ------------------------------------------------------------------------------------------------
 {
+    TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // IFG cleared just in case
     TI_CC_GDO0_PxIE  |=  TI_CC_GDO0_PIN; // Interrupt enabled
     TI_CC_GDO0_PxIES &= ~TI_CC_GDO0_PIN; // Start with rising edge
-    TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // IFG cleared just in case
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -226,15 +227,28 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
         
         if (send_setup(&dataBuffer[2])) // if bytes are left to be sent activate threshold interrupt 
         {
-            TI_CC_GDO2_PxIE |= TI_CC_GDO2_PIN;   // Interrupt enabled
-            TI_CC_GDO2_PxIES |= TI_CC_GDO2_PIN;  // Threshold on falling edge (hi->lo) - Tx FIFO depletion
             TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
+            TI_CC_GDO2_PxIE  |=  TI_CC_GDO2_PIN; // Interrupt enabled
+            TI_CC_GDO2_PxIES |=  TI_CC_GDO2_PIN; // Threshold on falling edge (hi->lo) - Tx FIFO depletion
         }
         
-        //send_setup(&dataBuffer[2]);
         init_gdo0_int();
         set_red_led(0);
+
         start_tx();
+    }
+    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RX)
+    {
+        rtx_toggle = 0;
+        rx_start = 0;
+        set_green_led(0);
+        receive_setup(&dataBuffer[1]);
+        init_gdo0_int();
+        TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
+        TI_CC_GDO2_PxIE  |=  TI_CC_GDO2_PIN; // Interrupt enabled
+        TI_CC_GDO2_PxIES &= ~TI_CC_GDO2_PIN; // Threshold on rising edge (lo->hi) - Rx FIFO filling
+
+        start_rx();
     }
 
     return 0;
@@ -273,12 +287,16 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
         case 10: // P1.4 : FIFO threshold interrupt
             if (rtx_toggle) // Tx-ing
             {
-                toggle_green_led();
                 gdo2_f++;
                 if (!send_more(&dataBuffer[2])) // if no more bytes are left to be sent de-activate threshold interrupt
                 {
                     TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
                 }
+            }
+            else // Rx-ing
+            {
+                gdo2_r++;
+                receive_more();
             }
 
             TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // Clear IFG
@@ -289,25 +307,84 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                 toggle_red_led();
 
                 if ((TI_CC_GDO0_PxIES & TI_CC_GDO0_PIN) == 0) // rising edge 
-                //if ((TI_CC_GDO0_PxIN & TI_CC_GDO0_PIN) != 0) // rising edge = start of packet
                 {
                     gdo0_r++;
                     TI_CC_GDO0_PxIES |= TI_CC_GDO0_PIN;  // Enable falling edge (hi->lo)
                 }
                 else // falling edge = end of packet
                 {
+                    uint8_t status;
+
                     gdo0_f++;
-                    dataBuffer[1] = 8;
-                    dataBuffer[2] = gdo0_r;
-                    dataBuffer[3] = gdo0_f;
-                    dataBuffer[4] = gdo2_r;
-                    dataBuffer[5] = gdo2_f;
-                    dataBuffer[6] = TI_CC_GDO0_PxIN;
-                    dataBuffer[7] = TI_CC_GDO0_PxIFG;
-                    dataBuffer[8] = TI_CC_GDO0_PxIE;
-                    dataBuffer[9] = TI_CC_GDO0_PxIES;
+                    status = transmit_end();
+
+                    if (status == 0) 
+                    {
+                        dataBuffer[1]  = 0;                        
+                    }
+                    else // TX FIFO UNDERFLOW or not empty => problem
+                    {
+                        dataBuffer[0]  = MSP430_BLOCK_TYPE_TX_KO;
+                        dataBuffer[1]  = 9;
+                        dataBuffer[2]  = status;
+                        dataBuffer[3]  = gdo0_r;
+                        dataBuffer[4]  = gdo0_f;
+                        dataBuffer[5]  = gdo2_r;
+                        dataBuffer[6]  = gdo2_f;
+                        dataBuffer[7]  = TI_CC_GDO0_PxIN;
+                        dataBuffer[8]  = TI_CC_GDO0_PxIFG;
+                        dataBuffer[9]  = TI_CC_GDO0_PxIE;
+                        dataBuffer[10] = TI_CC_GDO0_PxIES;
+                        flush_tx_fifo();
+                    }
+
                     send_ack = 1;
                     TI_CC_GDO0_PxIE &= ~TI_CC_GDO0_PIN;   // Interrupt disabled
+                }
+            }
+            else // Rx-ing
+            {
+                toggle_green_led();
+
+                if ((TI_CC_GDO0_PxIES & TI_CC_GDO0_PIN) == 0) // rising edge 
+                //if ((TI_CC_GDO0_PxIN & TI_CC_GDO0_PIN) != 0) // rising edge = start of packet
+                {
+                    gdo0_r++;
+                    rx_start = 1;
+                    TI_CC_GDO0_PxIES |= TI_CC_GDO0_PIN;  // Enable falling edge (hi->lo)
+                }
+                else // falling edge = end of packet
+                {
+                    uint8_t status;
+
+                    gdo0_f++;
+                    status = receive_end();
+
+                    if (status == 0) 
+                    {
+                        dataBuffer[0] = MSP430_BLOCK_TYPE_RX;
+                        dataBuffer[1] = dataBuffer[2] + 2 + 3; // USB block header + data count + block countdown + RSSI + LQI
+                    }
+                    else // RX FIFO OVERFLOW or not empty => problem
+                    {
+                        dataBuffer[0]  = MSP430_BLOCK_TYPE_RX_KO;
+                        dataBuffer[1]  = 9;
+                        dataBuffer[2]  = status;
+                        dataBuffer[3]  = gdo0_r;
+                        dataBuffer[4]  = gdo0_f;
+                        dataBuffer[5]  = gdo2_r;
+                        dataBuffer[6]  = gdo2_f;
+                        dataBuffer[7]  = TI_CC_GDO0_PxIN;
+                        dataBuffer[8]  = TI_CC_GDO0_PxIFG;
+                        dataBuffer[9]  = TI_CC_GDO0_PxIE;
+                        dataBuffer[10] = TI_CC_GDO0_PxIES;
+                        flush_rx_fifo();
+                    }
+
+                    send_ack = 1;
+                    rx_start = 0;
+                    TI_CC_GDO0_PxIE &= ~TI_CC_GDO0_PIN;   // Interrupt disabled
+                    TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
                 }
             }
 
@@ -398,6 +475,7 @@ void main (void)
     gdo0_r = 0;
     gdo0_f = 0;
     gdo2_r = 0;
+    gdo2_r1 = 0;
     gdo2_f = 0;
 
     init_left_button();

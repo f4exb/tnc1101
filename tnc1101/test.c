@@ -42,7 +42,7 @@ int radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parm
 
     verbprintf(0, "Sending %d test packets of size %d\n", arguments->repetition, arguments->packet_length);
 
-    while(packets_sent < arguments->repetition)
+    while (packets_sent < arguments->repetition)
     {
         nbytes = radio_send_block(serial_parms, arguments, dataBlock, ackBlock, &ackbytes, packet_time/4);
         verbprintf(2, "Packet #%d: %d bytes sent %d bytes received from radio_send_block\n", packets_sent, nbytes, ackbytes); 
@@ -56,6 +56,41 @@ int radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parm
     return 0; 
 }
 
+
+// ------------------------------------------------------------------------------------------------
+// Reception test with interrupt handlong
+int radio_receive_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, arguments_t *arguments)
+// ------------------------------------------------------------------------------------------------
+{
+    uint32_t packets_received, packet_time;
+    uint8_t  dataBlock[255];
+    int      nbytes = 0, block_countdown;
+    uint8_t  crc;
+
+    if (!init_radio(serial_parms, radio_parms, arguments))
+    {
+        fprintf(stderr, "Cannot initialize radio. Aborting...\n");
+        return 1;
+    }
+
+    memset(dataBlock, 0, 255);
+    packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
+    
+    while (packets_received < arguments->repetition)
+    {
+        block_countdown = radio_receive_block(serial_parms, arguments, dataBlock, &nbytes, &crc, packet_time/4);
+        verbprintf(2, "Packet #%d: Block countdown: %d BLock size: %d CRC: %s\n",
+            packets_received, block_countdown, nbytes, (crc ? "OK" : "KO"));
+        if (crc)
+        {
+            print_block(3, dataBlock, nbytes);
+        }
+
+        packets_received++;
+    }    
+
+    return 0;
+}
 
 /*
 // ------------------------------------------------------------------------------------------------

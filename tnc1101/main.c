@@ -30,7 +30,8 @@ char *tnc_mode_names[] = {
     "USB echo",
     "Radio status",
     "Radio init",
-    "Radio transmission test"
+    "Radio transmission test",
+    "Radio reception test"
 };
 
 char *modulation_names[] = {
@@ -582,6 +583,10 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_TEST_TX)
     {
         radio_transmit_test(&serial_parms, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_RX)
+    {
+        radio_receive_test(&serial_parms, &radio_parms, &arguments);
     }
     
     /*

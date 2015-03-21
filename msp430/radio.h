@@ -24,6 +24,7 @@
 #define RADIO_BUFSIZE  (TI_CCxxx0_PACKET_SIZE+2)
 
 void    init_radio_spi();
+void    reset_radio();
 void    init_radio(msp430_radio_parms_t *radio_parms);
 void    get_radio_status(uint8_t *status_regs);
 uint8_t transmit_setup(uint8_t *dataBlock);

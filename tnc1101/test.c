@@ -35,6 +35,10 @@ int radio_transmit_test(serial_t *serial_parms,
         fprintf(stderr, "Cannot initialize radio. Aborting...\n");
         return 1;
     }
+    else
+    {
+        usleep(100000);
+    }
 
     memset(dataBlock, 0, 255);
 
@@ -47,7 +51,9 @@ int radio_transmit_test(serial_t *serial_parms,
     
     packets_sent = 0;
 
-    verbprintf(0, "Sending %d test packets of size %d\n", arguments->repetition, arguments->packet_length);
+    verbprintf(0, "Sending %d test packets of size %d\n", 
+        arguments->repetition, 
+        arguments->packet_length);
 
     while (packets_sent < arguments->repetition)
     {
@@ -90,11 +96,18 @@ int radio_receive_test(serial_t *serial_parms,
         fprintf(stderr, "Cannot initialize radio. Aborting...\n");
         return 1;
     }
+    else
+    {
+        usleep(100000);
+    }
 
     memset(dataBlock, 0, 255);
-    
     packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
     
+    verbprintf(0, "Receiving %d test packets of size %d\n", 
+        arguments->repetition, 
+        arguments->packet_length);
+
     while (packets_received < arguments->repetition)
     {
         nbytes = 0;

@@ -73,7 +73,6 @@ char    dataBuffer[BUFFER_SIZE] = "";  // Current I/O buffer
 char    outString[65];                 // Holds outgoing strings to be sent
 uint8_t send_ack = 0;                  // Set when an ack is to be sent
 uint8_t rtx_toggle = 0;                // 0: Rx - 1: Tx
-uint8_t rx_start = 0;                  // start of Rx operation / rx on-going
 
 uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_r1, gdo2_f;
 
@@ -217,6 +216,8 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     }
     else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
     {
+        reset_radio();
+        __delay_cycles(5000);  // ~5ms delay 
         init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
         dataBuffer[1] = 0;
         send_ack = 1;
@@ -240,7 +241,6 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RX)
     {
         rtx_toggle = 0;
-        rx_start = 0;
         set_green_led(0);
         receive_setup(&dataBuffer[1]);
         init_gdo0_int();
@@ -319,26 +319,22 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                     gdo0_f++;
                     status = transmit_end();
 
-                    if (status == 0) 
-                    {
-                        dataBuffer[1]  = 0;                        
-                    }
-                    else // TX FIFO UNDERFLOW or not empty => problem
+                    if (status != 0) // TX FIFO UNDERFLOW or not empty => problem 
                     {
                         dataBuffer[0]  = MSP430_BLOCK_TYPE_TX_KO;
-                        dataBuffer[1]  = 9;
-                        dataBuffer[2]  = status;
-                        dataBuffer[3]  = gdo0_r;
-                        dataBuffer[4]  = gdo0_f;
-                        dataBuffer[5]  = gdo2_r;
-                        dataBuffer[6]  = gdo2_f;
-                        dataBuffer[7]  = TI_CC_GDO0_PxIN;
-                        dataBuffer[8]  = TI_CC_GDO0_PxIFG;
-                        dataBuffer[9]  = TI_CC_GDO0_PxIE;
-                        dataBuffer[10] = TI_CC_GDO0_PxIES;
                         flush_tx_fifo();
                     }
 
+                    dataBuffer[1]  = 9;
+                    dataBuffer[2]  = status;
+                    dataBuffer[3]  = gdo0_r;
+                    dataBuffer[4]  = gdo0_f;
+                    dataBuffer[5]  = gdo2_r;
+                    dataBuffer[6]  = gdo2_f;
+                    dataBuffer[7]  = TI_CC_GDO0_PxIN;
+                    dataBuffer[8]  = TI_CC_GDO0_PxIFG;
+                    dataBuffer[9]  = TI_CC_GDO0_PxIE;
+                    dataBuffer[10] = TI_CC_GDO0_PxIES;
                     send_ack = 1;
                     TI_CC_GDO0_PxIE &= ~TI_CC_GDO0_PIN;   // Interrupt disabled
                 }
@@ -351,7 +347,6 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                 //if ((TI_CC_GDO0_PxIN & TI_CC_GDO0_PIN) != 0) // rising edge = start of packet
                 {
                     gdo0_r++;
-                    rx_start = 1;
                     TI_CC_GDO0_PxIES |= TI_CC_GDO0_PIN;  // Enable falling edge (hi->lo)
                 }
                 else // falling edge = end of packet
@@ -383,7 +378,6 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                     }
 
                     send_ack = 1;
-                    rx_start = 0;
                     TI_CC_GDO0_PxIE &= ~TI_CC_GDO0_PIN;   // Interrupt disabled
                     TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
                 }
@@ -556,6 +550,20 @@ void main (void)
 
                 if (send_ack)
                 {
+                    if (dataBuffer[0] == 0) // it's a bug!
+                    {
+                        dataBuffer[1]  = 9;
+                        dataBuffer[2]  = rtx_toggle;
+                        dataBuffer[3]  = gdo0_r;
+                        dataBuffer[4]  = gdo0_f;
+                        dataBuffer[5]  = gdo2_r;
+                        dataBuffer[6]  = gdo2_f;
+                        dataBuffer[7]  = TI_CC_GDO0_PxIN;
+                        dataBuffer[8]  = TI_CC_GDO0_PxIFG;
+                        dataBuffer[9]  = TI_CC_GDO0_PxIE;
+                        dataBuffer[10] = TI_CC_GDO0_PxIES;
+                    }
+
                     retVal = cdcSendDataInBackground((uint8_t *) dataBuffer, dataBuffer[1] + 2, CDC0_INTFNUM, 1);
                     send_ack = 0;
                 }

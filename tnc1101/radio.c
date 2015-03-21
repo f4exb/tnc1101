@@ -456,7 +456,9 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
-    if (nbytes > 0)
+    print_block(3, dataBuffer, nbytes);
+
+    if (nbytes >= 14)
     {
         regs = &dataBuffer[2];
 

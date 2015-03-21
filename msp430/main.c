@@ -69,12 +69,12 @@ volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler t
 
 #define BUFFER_SIZE 260                // Command + size + data (size + block countdown + data + RSSI + LQI)
                                        //       1 +    1         ------------------------- 256 +    1 +   1 
-char    dataBuffer[BUFFER_SIZE] = "";  // Current I/O buffer
+char    dataBuffer[BUFFER_SIZE];       // Current I/O buffer
 char    outString[65];                 // Holds outgoing strings to be sent
 uint8_t send_ack = 0;                  // Set when an ack is to be sent
 uint8_t rtx_toggle = 0;                // 0: Rx - 1: Tx
 
-uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_r1, gdo2_f;
+uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_f;
 
 // = Static functions declarations =================================================================
 
@@ -188,13 +188,13 @@ void toggle_green_led()
 
 // ------------------------------------------------------------------------------------------------
 // Process an incoming USB block
-uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
+uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t byte_count = dataBuffer[1];
+    uint8_t byte_count = pDataBuffer[1];
     char str_byte[4];
 
-    if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_ECHO_TEST)
+    if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_ECHO_TEST)
     {
         strcpy(outString, "xxEcho Command - Byte count: ");
         print_byte_decimal(byte_count, str_byte);
@@ -208,25 +208,24 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
             return 1;
         }
     }
-    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RADIO_STATUS)
+    else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RADIO_STATUS)
     {
-        get_radio_status(&dataBuffer[2]);
-        dataBuffer[1] = TI_CCxxx0_NUM_STATUS;
+        get_radio_status(&pDataBuffer[2]);
+        pDataBuffer[1] = TI_CCxxx0_NUM_STATUS;
         send_ack = 1;
     }
-    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
+    else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
     {
         reset_radio();
         __delay_cycles(5000);  // ~5ms delay 
-        init_radio((msp430_radio_parms_t *) &dataBuffer[2]);
-        dataBuffer[1] = 0;
+        init_radio((msp430_radio_parms_t *) &pDataBuffer[2]);
         send_ack = 1;
     }
-    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_TX)
+    else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_TX)
     {
         rtx_toggle = 1;
         
-        if (transmit_setup(&dataBuffer[1])) // if bytes are left to be sent activate threshold interrupt 
+        if (transmit_setup(&pDataBuffer[1])) // if bytes are left to be sent activate threshold interrupt 
         {
             TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
             TI_CC_GDO2_PxIE  |=  TI_CC_GDO2_PIN; // Interrupt enabled
@@ -238,11 +237,11 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
 
         start_tx();
     }
-    else if (dataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RX)
+    else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RX)
     {
         rtx_toggle = 0;
         set_green_led(0);
-        receive_setup(&dataBuffer[1]);
+        receive_setup(&pDataBuffer[1]);
         init_gdo0_int();
         TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
         TI_CC_GDO2_PxIE  |=  TI_CC_GDO2_PIN; // Interrupt enabled
@@ -319,9 +318,13 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                     gdo0_f++;
                     status = transmit_end();
 
-                    if (status != 0) // TX FIFO UNDERFLOW or not empty => problem 
+                    if (status == 0) 
                     {
-                        dataBuffer[0]  = MSP430_BLOCK_TYPE_TX_KO;
+                        dataBuffer[0]  = (uint8_t) MSP430_BLOCK_TYPE_TX;   
+                    }
+                    else // TX FIFO UNDERFLOW or not empty => problem 
+                    {
+                        dataBuffer[0]  = (uint8_t) MSP430_BLOCK_TYPE_TX_KO;
                         flush_tx_fifo();
                     }
 
@@ -358,12 +361,12 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
 
                     if (status == 0) 
                     {
-                        dataBuffer[0] = MSP430_BLOCK_TYPE_RX;
+                        dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX;
                         dataBuffer[1] += 2; // + RSSI + LQI
                     }
                     else // RX FIFO OVERFLOW or not empty => problem
                     {
-                        dataBuffer[0]  = MSP430_BLOCK_TYPE_RX_KO;
+                        dataBuffer[0]  = (uint8_t) MSP430_BLOCK_TYPE_RX_KO;
                         dataBuffer[1]  = 9;
                         dataBuffer[2]  = status;
                         dataBuffer[3]  = gdo0_r;
@@ -470,11 +473,11 @@ void main (void)
     gdo0_r = 0;
     gdo0_f = 0;
     gdo2_r = 0;
-    gdo2_r1 = 0;
     gdo2_f = 0;
 
     init_left_button();
     init_gdo();
+    memset(dataBuffer, 0, BUFFER_SIZE);
 
     //__bis_SR_register(LPM0_bits + GIE); // Enter LPM0 until awakened by an event handler
 

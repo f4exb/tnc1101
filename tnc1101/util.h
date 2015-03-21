@@ -7,7 +7,7 @@
 extern int verbose_level;
 
 void     _verbprintf(int verb_level, const char *fmt, ...);
-void     _print_block(int verb_level, const uint8_t *pblock, size_t size);
+void     _print_block(int verb_level, const uint8_t *pblock, int size);
 
 int      timeval_subtract(struct timeval *result, struct timeval *x, struct timeval *y);
 uint32_t ts_us(struct timeval *x);

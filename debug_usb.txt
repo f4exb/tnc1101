@@ -1,8 +1,8 @@
 USB return with debug information
      Erroneous USB return = 00
-     TX OK = 01
-     TX KO = 02
-     RX KO = 04
+     TX OK = 02
+     TX KO = 03
+     RX KO = 05
      |
      |         status (RX, TX)
      |         rtx_toggle (Erroneous)
@@ -19,5 +19,5 @@ Packet #0: 94 bytes sent 11 bytes received from radio_send_block (Erroneous)
 000: 00:. 09:. 01:. 12:. 12:. 00:. 0A:. 00:. 21:! 00:. 30:0 
 Packet #0: 34 bytes sent 11 bytes received from radio_send_block (TX OK)
      0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F    
-000: 01:. 09:. 00:. 02:. 02:. 00:. 00:. 00:. 11:. 20:  30:0 
+000: 02:. 09:. 00:. 02:. 02:. 00:. 00:. 00:. 11:. 20:  30:0 
 

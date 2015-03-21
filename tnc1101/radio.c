@@ -435,6 +435,8 @@ int init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, argume
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
+    print_block(3, dataBuffer, nbytes);
+
     return nbytes;
 }
 

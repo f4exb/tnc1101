@@ -28,7 +28,7 @@ void _verbprintf(int verb_level, const char *fmt, ...)
 }
 
 // -------------------------------------------------------------------------------------------------
-void _print_block(int verb_level, const uint8_t *pblock, size_t size)
+void _print_block(int verb_level, const uint8_t *pblock, int size)
 // -------------------------------------------------------------------------------------------------
 {
     size_t i;
@@ -37,6 +37,9 @@ void _print_block(int verb_level, const uint8_t *pblock, size_t size)
     int    flush = 1;
 
     if (verb_level > verbose_level)
+        return;
+
+    if (size < 0)
         return;
 
     fprintf(stderr, "     ");

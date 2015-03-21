@@ -365,18 +365,19 @@ void get_radio_status(uint8_t *status_regs)
 // byte 1  : block countdown
 // byte 2+ : data block
 // returns the number of bytes left to be sent
-uint8_t send_setup(uint8_t *dataBlock)
+uint8_t transmit_setup(uint8_t *dataBlock)
 // ------------------------------------------------------------------------------------------------
 {
     uint8_t initial_tx_count; // Number of bytes to send in first batch
 
-    bytes_remaining = dataBlock[0] + 2; // initial count
+    bytes_remaining = dataBlock[0]; // initial count
+    pDataBlock = &dataBlock[1];     // block of data to send
 
     TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, bytes_remaining); // Packet length.
     TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x02); // GDO2 output pin config TX mode
 
     bytes_processed = (bytes_remaining > TI_CCxxx0_FIFO_SIZE-1 ? TI_CCxxx0_FIFO_SIZE-1 : bytes_remaining);
-    TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, dataBlock, bytes_processed);
+    TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, pDataBlock, bytes_processed);
     bytes_remaining -= bytes_processed;
 
     return bytes_remaining;
@@ -385,7 +386,7 @@ uint8_t send_setup(uint8_t *dataBlock)
 // ------------------------------------------------------------------------------------------------
 // Send more bytes when Tx FIFO gets depleted
 // returns the number of bytes left to be sent
-uint8_t send_more(uint8_t *dataBlock)
+uint8_t transmit_more()
 // ------------------------------------------------------------------------------------------------
 {
     uint8_t bytes_to_send;
@@ -393,7 +394,7 @@ uint8_t send_more(uint8_t *dataBlock)
     if (bytes_remaining)
     {
         bytes_to_send = (bytes_remaining < TX_FIFO_REFILL ? bytes_remaining : TX_FIFO_REFILL);
-        TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, &dataBlock[bytes_processed], bytes_to_send);
+        TI_CC_SPIWriteBurstReg(TI_CCxxx0_TXFIFO, &pDataBlock[bytes_processed], bytes_to_send);
         bytes_remaining -= bytes_to_send;
         bytes_processed += bytes_to_send;
     }

@@ -225,7 +225,7 @@ uint8_t process_usb_block(uint16_t count, uint8_t *dataBuffer)
     {
         rtx_toggle = 1;
         
-        if (send_setup(&dataBuffer[2])) // if bytes are left to be sent activate threshold interrupt 
+        if (transmit_setup(&dataBuffer[1])) // if bytes are left to be sent activate threshold interrupt 
         {
             TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
             TI_CC_GDO2_PxIE  |=  TI_CC_GDO2_PIN; // Interrupt enabled
@@ -288,7 +288,8 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
             if (rtx_toggle) // Tx-ing
             {
                 gdo2_f++;
-                if (!send_more(&dataBuffer[2])) // if no more bytes are left to be sent de-activate threshold interrupt
+                
+                if (!transmit_more()) // if no more bytes are left to be sent de-activate threshold interrupt
                 {
                     TI_CC_GDO2_PxIE &= ~TI_CC_GDO2_PIN;   // Interrupt disabled
                 }

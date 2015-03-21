@@ -21,7 +21,9 @@
 
 // ------------------------------------------------------------------------------------------------
 // Transmission test with interrupt handling
-int radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, arguments_t *arguments)
+int radio_transmit_test(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
     uint32_t packets_sent, packet_time;
@@ -39,7 +41,7 @@ int radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parm
     dataBlock[0] = strlen(arguments->test_phrase) + 1; // + block countdown
     dataBlock[1] = 0; // block countdown of zero for a single block packet
     
-    strncpy(&dataBlock[2], arguments->test_phrase, arguments->packet_length-1-2); // 
+    strncpy(&dataBlock[2], arguments->test_phrase, arguments->packet_length-2); // - count - block countdown  
     
     packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
     
@@ -72,7 +74,9 @@ int radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parm
 
 // ------------------------------------------------------------------------------------------------
 // Reception test with interrupt handlong
-int radio_receive_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, arguments_t *arguments)
+int radio_receive_test(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
     uint32_t packets_received, packet_time;
@@ -104,7 +108,7 @@ int radio_receive_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms
         
         crc = get_crc_lqi(crc_lqi, &lqi);
 
-        verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI %.1f dBm CRC: %s\n",
+        verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI: %.1f dBm CRC: %s\n",
             packets_received, 
             block_countdown, 
             nbytes, 

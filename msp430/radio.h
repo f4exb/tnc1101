@@ -26,8 +26,8 @@
 void    init_radio_spi();
 void    init_radio(msp430_radio_parms_t *radio_parms);
 void    get_radio_status(uint8_t *status_regs);
-uint8_t send_setup(uint8_t *dataBlock);
-uint8_t send_more(uint8_t *dataBlock);
+uint8_t transmit_setup(uint8_t *dataBlock);
+uint8_t transmit_more();
 void    start_tx();
 uint8_t transmit_end();
 void    receive_setup(uint8_t *dataBlock);

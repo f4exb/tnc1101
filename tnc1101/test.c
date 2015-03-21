@@ -35,21 +35,34 @@ int radio_transmit_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parm
     }
 
     memset(dataBlock, 0, 255);
-    dataBlock[0] = arguments->packet_length;
-    strncpy(&dataBlock[2], arguments->test_phrase, 252);
+
+    dataBlock[0] = strlen(arguments->test_phrase) + 1; // + block countdown
+    dataBlock[1] = 0; // block countdown of zero for a single block packet
+    
+    strncpy(&dataBlock[2], arguments->test_phrase, arguments->packet_length-1-2); // 
+    
     packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
+    
     packets_sent = 0;
 
     verbprintf(0, "Sending %d test packets of size %d\n", arguments->repetition, arguments->packet_length);
 
     while (packets_sent < arguments->repetition)
     {
-        nbytes = radio_send_block(serial_parms, arguments, dataBlock, ackBlock, &ackbytes, packet_time/4);
+        nbytes = radio_send_block(serial_parms, 
+            dataBlock, 
+            arguments->packet_length, 
+            ackBlock, 
+            &ackbytes, 
+            packet_time/4);
+
         verbprintf(2, "Packet #%d: %d bytes sent %d bytes received from radio_send_block\n", packets_sent, nbytes, ackbytes); 
+        
         if (ackbytes > 0)
         {
             print_block(2, ackBlock, ackbytes);
         }
+        
         packets_sent++;
     }
 
@@ -64,8 +77,9 @@ int radio_receive_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms
 {
     uint32_t packets_received, packet_time;
     uint8_t  dataBlock[255];
-    int      nbytes = 0, block_countdown;
-    uint8_t  crc;
+    char     displayBlock[255];
+    int      nbytes, block_countdown;
+    uint8_t  rssi, lqi, crc, crc_lqi;
 
     if (!init_radio(serial_parms, radio_parms, arguments))
     {
@@ -74,16 +88,34 @@ int radio_receive_test(serial_t *serial_parms, msp430_radio_parms_t *radio_parms
     }
 
     memset(dataBlock, 0, 255);
+    
     packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
     
     while (packets_received < arguments->repetition)
     {
-        block_countdown = radio_receive_block(serial_parms, arguments, dataBlock, &nbytes, &crc, packet_time/4);
-        verbprintf(2, "Packet #%d: Block countdown: %d BLock size: %d CRC: %s\n",
-            packets_received, block_countdown, nbytes, (crc ? "OK" : "KO"));
+        nbytes = 0;
+
+        block_countdown = radio_receive_block(serial_parms, 
+            dataBlock,
+            arguments->packet_length, 
+            &nbytes,
+            &rssi, 
+            &crc_lqi);
+        
+        crc = get_crc_lqi(crc_lqi, &lqi);
+
+        verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI %.1f dBm CRC: %s\n",
+            packets_received, 
+            block_countdown, 
+            nbytes, 
+            rssi_dbm(rssi),
+            (crc ? "OK" : "KO"));
+
         if (crc)
         {
-            print_block(3, dataBlock, nbytes);
+            strncpy(displayBlock, dataBlock, nbytes);
+            displayBlock[nbytes] = '\0';
+            verbprintf(1, ">%s\n", displayBlock);
         }
 
         packets_received++;

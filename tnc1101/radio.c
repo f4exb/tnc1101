@@ -83,7 +83,6 @@ uint32_t packets_sent;
 uint32_t packets_received;
 
 // === Static functions declarations ==============================================================
-static float    rssi_dbm(uint8_t rssi_dec);
 static uint32_t get_freq_word(arguments_t *arguments);
 static uint8_t  get_mod_word(radio_modulation_t modulation_code);
 static radio_modulation_t get_mod_code(uint8_t mod_word);
@@ -100,21 +99,6 @@ static uint8_t  crc_check(uint8_t *block);
 */
 
 // === Static functions ===========================================================================
-
-// ------------------------------------------------------------------------------------------------
-// Calculate RSSI in dBm from decimal RSSI read out of RSSI status register
-float rssi_dbm(uint8_t rssi_dec)
-// ------------------------------------------------------------------------------------------------
-{
-    if (rssi_dec < 128)
-    {
-        return (rssi_dec / 2.0) - 74.0;
-    }
-    else
-    {
-        return ((rssi_dec - 256) / 2.0) - 74.0;
-    }
-}
 
 // ------------------------------------------------------------------------------------------------
 // Calculate frequency word FREQ[23..0]
@@ -543,17 +527,18 @@ void print_radio_parms(msp430_radio_parms_t *radio_parms)
 
 // ------------------------------------------------------------------------------------------------
 // Send a radio block of maximum 255 bytes
-// dataBlock[0]  is the data block payload size (count from dataBock[2])
+// dataBlock[0]  is the actual data size inside the block (counted from dataBlock[1])
 // dataBlock[1]  is the block countdown
-// &dataBlock[2] is the actual data block
+// dataBlock[2]  is the start of the actual data block
+// dataBlocSize  is the size of the complete data block excluding header sent over USB. This equals to packet_length.
 // ackblock      is the acknowledgement block
 // ackBlockSize  (input)  is the acknowledgement block allocated size
 //               (output) is the actual acknowledgement block size
 // timeout_us    is the acknowledgement timeout in microseconds
 // returns       the number of bytes sent over USB
 int radio_send_block(serial_t *serial_parms, 
-        arguments_t *arguments, 
         uint8_t     *dataBlock, 
+        uint8_t     dataBlockSize,
         uint8_t     *ackBlock, 
         int         *ackBlockSize, 
         uint32_t    timeout_us)
@@ -562,10 +547,10 @@ int radio_send_block(serial_t *serial_parms,
     int nbytes, ackbytes;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_TX;
-    dataBuffer[1] = dataBlock[0] + 2;
-    memcpy(&dataBuffer[2], dataBlock, dataBuffer[1]);
+    dataBuffer[1] = dataBlockSize;
+    memcpy(&dataBuffer[2], dataBlock, dataBlockSize);
 
-    nbytes = write_serial(serial_parms, dataBuffer, dataBuffer[1]+2);
+    nbytes = write_serial(serial_parms, dataBuffer, dataBlockSize+2);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
 
     ackbytes = read_usb(serial_parms, ackBlock, *ackBlockSize, timeout_us/10);
@@ -577,37 +562,50 @@ int radio_send_block(serial_t *serial_parms,
 // ------------------------------------------------------------------------------------------------
 // Receive of a block
 uint8_t radio_receive_block(serial_t *serial_parms, 
-        arguments_t *arguments, 
-        uint8_t     *dataBlock, 
+        uint8_t     *dataBlock,
+        uint8_t     dataBlockSize, 
         uint32_t    *size, 
-        uint8_t     *crc)
+        uint8_t     *rssi,
+        uint8_t     *crc_lqi)
 // ------------------------------------------------------------------------------------------------
 {
     int     nbytes;
-    uint8_t data_count;
+    uint8_t block_size;
+    uint8_t data_size;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX;
-    dataBuffer[1] = arguments->packet_length;
+    dataBuffer[1] = dataBlockSize;
 
     nbytes = write_serial(serial_parms, dataBuffer, 2);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 0);
     verbprintf(2, "%d bytes read from USB\n", nbytes);
+    print_block(3, dataBuffer, nbytes);
 
-    if (nbytes >= 4)
+    if (nbytes < 4)
     {
-        print_block(3, dataBuffer, nbytes);
-        data_count = dataBuffer[2];
-        *size += data_count;
-        memcpy(dataBlock, &dataBuffer[4], data_count);
-        *crc = (dataBuffer[data_count + 4 + 1] & 0x80)>>7;
-        return dataBuffer[3]; // block countdown
+        *crc_lqi = 0;
+        return 0;
     }
     else
     {
-        *crc = 0;
-        return 0;
+        block_size = dataBuffer[1]; // complete size less command byte and counter itself (2 bytes)
+        data_size = dataBuffer[2] - 1;
+        *size += data_size;
+
+        if (nbytes > 4) // some data is returned
+        {
+            memcpy(dataBlock, &dataBuffer[4], data_size);
+        }
+
+        if (nbytes >= 6)
+        {
+            *rssi    = dataBuffer[block_size+2 - 2]; // byte before last byte is RSSI
+            *crc_lqi = dataBuffer[block_size+2 - 1]; // last byte is CRC+LQI combination byte
+        }
+
+        return dataBuffer[3]; // block countdown
     }
 }
 

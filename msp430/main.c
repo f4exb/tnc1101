@@ -363,7 +363,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                     if (status == 0) 
                     {
                         dataBuffer[0] = MSP430_BLOCK_TYPE_RX;
-                        dataBuffer[1] = dataBuffer[2] + 2 + 3; // USB block header + data count + block countdown + RSSI + LQI
+                        dataBuffer[1] += 2; // + RSSI + LQI
                     }
                     else // RX FIFO OVERFLOW or not empty => problem
                     {

@@ -105,3 +105,27 @@ uint32_t ts_us(struct timeval *x)
 {
     return 1000000 * x->tv_sec + x->tv_usec;
 }
+
+// ------------------------------------------------------------------------------------------------
+// Calculate RSSI in dBm from decimal RSSI read out of RSSI status register
+float rssi_dbm(uint8_t rssi_dec)
+// ------------------------------------------------------------------------------------------------
+{
+    if (rssi_dec < 128)
+    {
+        return (rssi_dec / 2.0) - 74.0;
+    }
+    else
+    {
+        return ((rssi_dec - 256) / 2.0) - 74.0;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Extract CRC and LQI from the CRC+LQI combination byte
+uint8_t get_crc_lqi(uint8_t crc_lqi, uint8_t *lqi)
+// ------------------------------------------------------------------------------------------------
+{
+    *lqi = crc_lqi & 0x7F;
+    return (crc_lqi & 0x80)>>7;
+}

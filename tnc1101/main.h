@@ -18,6 +18,7 @@ typedef enum tnc_mode_e {
     TNC_TEST_RX,
     TNC_TEST_ECHO_TX,
     TNC_TEST_ECHO_RX,
+    TNC_TEST_TX_PACKET,
     NUM_TNC
 } tnc_mode_t;
 
@@ -79,6 +80,7 @@ typedef struct arguments_s {
     uint32_t           freq_hz;              // Frequency in Hz
     uint32_t           if_freq_hz;           // Intermediate frequency in Hz
     uint8_t            packet_length;        // Fixed packet length
+    uint16_t           large_packet_length;  // Composed large packet length
     uint8_t            variable_length;      // Set variable length packet mode. Fixed packet argument becomes maximum packet size
     tnc_mode_t         tnc_mode;             // TNC mode of operation 
     char               *test_phrase;         // Test phrase to transmit

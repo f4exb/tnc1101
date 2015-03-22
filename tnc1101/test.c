@@ -20,7 +20,7 @@
 // === Public functions ===========================================================================
 
 // ------------------------------------------------------------------------------------------------
-// Transmission test with interrupt handling
+// Transmission test with (<255 bytes) blocks
 int radio_transmit_test(serial_t *serial_parms, 
     msp430_radio_parms_t *radio_parms, 
     arguments_t *arguments)
@@ -42,10 +42,7 @@ int radio_transmit_test(serial_t *serial_parms,
 
     memset(dataBlock, 0, 255);
 
-    dataBlock[0] = strlen(arguments->test_phrase) + 1; // + block countdown
-    dataBlock[1] = 0; // block countdown of zero for a single block packet
-    
-    strncpy(&dataBlock[2], arguments->test_phrase, arguments->packet_length-2); // - count - block countdown  
+    strncpy(dataBlock, arguments->test_phrase, arguments->packet_length-2); // - count - block countdown  
     
     packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
     
@@ -58,7 +55,9 @@ int radio_transmit_test(serial_t *serial_parms,
     while (packets_sent < arguments->repetition)
     {
         nbytes = radio_send_block(serial_parms, 
-            dataBlock, 
+            dataBlock,
+            strlen(arguments->test_phrase) + 1, // + block countdown
+            0, // block countdown of zero for a single block packet
             arguments->packet_length, 
             ackBlock, 
             &ackbytes, 
@@ -77,6 +76,50 @@ int radio_transmit_test(serial_t *serial_parms,
     return 0; 
 }
 
+// ------------------------------------------------------------------------------------------------
+// Transmission test with (large >255 bytes) packets
+int radio_packet_transmit_test(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
+// ------------------------------------------------------------------------------------------------
+{
+    uint32_t packets_sent, block_time;
+    uint8_t  dataBlock[1<<16];
+
+    if (!init_radio(serial_parms, radio_parms, arguments))
+    {
+        fprintf(stderr, "Cannot initialize radio. Aborting...\n");
+        return 1;
+    }
+    else
+    {
+        usleep(100000);
+    }
+
+    memset(dataBlock, 0, 1<<16);
+    strncpy(dataBlock, arguments->test_phrase, arguments->large_packet_length);
+
+    block_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
+
+    packets_sent = 0;
+
+    verbprintf(0, "Sending %d test packets of size %d\n", 
+        arguments->repetition, 
+        arguments->large_packet_length);
+
+    while (packets_sent < arguments->repetition)
+    {
+        verbprintf(1, "Packet #%d\n", packets_sent);
+
+        radio_send_packet(serial_parms,
+            dataBlock,
+            arguments->packet_length,
+            arguments->large_packet_length,
+            block_time);
+
+        packets_sent++;
+    }
+}
 
 // ------------------------------------------------------------------------------------------------
 // Reception test with interrupt handlong
@@ -155,6 +198,7 @@ int radio_echo_test(serial_t *serial_parms,
     uint8_t  dataBlock[255], displayBlock[255], ackBlock[32];
     int      nbytes, block_countdown, ackbytes = 32;
     uint8_t  rssi, lqi, crc, crc_lqi;
+    uint8_t  data_size;
 
     if (!init_radio(serial_parms, radio_parms, arguments))
     {
@@ -170,9 +214,8 @@ int radio_echo_test(serial_t *serial_parms,
 
     if (active)
     {
-        dataBlock[0] = strlen(arguments->test_phrase) + 1; // + block countdown
-        dataBlock[1] = 0; // block countdown of zero for a single block packet
-        strncpy(&dataBlock[2], arguments->test_phrase, 253);
+        data_size = strlen(arguments->test_phrase) + 1; // + block countdown
+        strncpy(dataBlock, arguments->test_phrase, 253);
         rtx_toggle = 1;
     }
     else
@@ -205,7 +248,9 @@ int radio_echo_test(serial_t *serial_parms,
                 verbprintf(0, "Sending #%d\n", packets_sent);
 
                 nbytes = radio_send_block(serial_parms, 
-                    dataBlock, 
+                    dataBlock,
+                    data_size,
+                    0,
                     arguments->packet_length, 
                     ackBlock, 
                     &ackbytes, 
@@ -243,7 +288,7 @@ int radio_echo_test(serial_t *serial_parms,
                 nbytes = 0;
 
                 block_countdown = radio_receive_block(serial_parms, 
-                    &dataBlock[2],
+                    dataBlock,
                     arguments->packet_length, 
                     &nbytes,
                     &rssi, 
@@ -260,9 +305,14 @@ int radio_echo_test(serial_t *serial_parms,
 
                 if (crc)
                 {
-                    strncpy(displayBlock, &dataBlock[2], nbytes);
+                    strncpy(displayBlock, dataBlock, nbytes);
                     displayBlock[nbytes] = '\0';
                     verbprintf(1, ">%s\n", displayBlock);
+                    data_size = nbytes + 1; // + block countdown
+                }
+                else
+                {
+                    data_size = 1;
                 }
 
                 packets_received++;

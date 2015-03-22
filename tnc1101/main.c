@@ -16,7 +16,6 @@
 #include "main.h"
 #include "util.h"
 #include "serial.h"
-#include "pi_cc_spi.h"
 #include "radio.h"
 #include "kiss.h"
 #include "msp430_interface.h"
@@ -30,10 +29,11 @@ char *tnc_mode_names[] = {
     "USB echo",
     "Radio status",
     "Radio init",
-    "Radio transmission test",
-    "Radio reception test",
-    "Radio echo test starting with Tx",
-    "Radio echo test starting with Rx"
+    "Radio block transmission test",
+    "Radio block reception test",
+    "Radio block echo test starting with Tx",
+    "Radio block echo test starting with Rx",
+    "Radio packet transmission test"
 };
 
 char *modulation_names[] = {
@@ -98,6 +98,7 @@ static struct argp_option options[] = {
     {"frequency",  'f', "FREQUENCY_HZ", 0, "Frequency in Hz (default: 433600000)"},
     {"if-frequency",  'I', "IF_FREQUENCY_HZ", 0, "Intermediate frequency in Hz (default: 310000)"},
     {"packet-length",  'P', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
+    {"large-packet-length",  'p', "LARGE_PACKET_LENGTH", 0, "Large packet length (>255 bytes) for packet test only (default: 480)"},
     {"variable-length",  'V', 0, 0, "Variable packet length. Given packet length becomes maximum length (default off)"},
     {"tnc-mode",  't', "TNC_MODE", 0, "TNC mode of operation, See long help (-H) option fpr details (default : 0 KISS)"},
     {"test-phrase",  'y', "TEST_PHRASE", 0, "Set a test phrase to be used in test (default : \"Hello, World!\")"},
@@ -182,6 +183,7 @@ static void init_args(arguments_t *arguments)
     arguments->freq_hz = 433600000;
     arguments->if_freq_hz = 310000;
     arguments->packet_length = 250;
+    arguments->large_packet_length = 480;
     arguments->variable_length = 0;
     arguments->tnc_mode = TNC_KISS;
     arguments->test_phrase = strdup("Hello, World!");
@@ -232,6 +234,7 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Modulation index ....: %.2f\n", arguments->modulation_index);
     fprintf(stderr, "Frequency ...........: %d Hz\n", arguments->freq_hz);
     fprintf(stderr, "Packet length .......: %d bytes\n", arguments->packet_length);
+    fprintf(stderr, ">255 pkt len (test) .: %d bytes\n", arguments->large_packet_length);
     fprintf(stderr, "Variable length .....: %s\n", (arguments->variable_length ? "yes" : "no"));
     fprintf(stderr, "Preamble size .......: %d bytes\n", nb_preamble_bytes[arguments->preamble]);
     fprintf(stderr, "FEC .................: %s\n", (arguments->fec ? "on" : "off"));
@@ -388,6 +391,12 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         // Packet length
         case 'P':
             arguments->packet_length = strtol(arg, &end, 10) % 254;
+            if (*end)
+                argp_usage(state);
+            break; 
+        // Large packet length
+        case 'p':
+            arguments->large_packet_length = strtol(arg, &end, 10) % (1<<16);
             if (*end)
                 argp_usage(state);
             break; 
@@ -597,7 +606,11 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_TEST_ECHO_RX)
     {
         radio_echo_test(&serial_parms, &radio_parms, &arguments, 0);
-    } 
+    }
+    else if (arguments.tnc_mode == TNC_TEST_TX_PACKET)
+    {
+        radio_packet_transmit_test(&serial_parms, &radio_parms, &arguments);
+    }
 
     /*
     init_radio_parms(&radio_parameters, &arguments);

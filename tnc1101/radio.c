@@ -77,6 +77,7 @@ float chanbw_limits[] = {
 #define DATA_BUFFER_SIZE 257
 
 uint8_t  dataBuffer[DATA_BUFFER_SIZE];
+uint8_t  ackBuffer[DATA_BUFFER_SIZE];
 uint32_t blocks_sent;
 uint32_t blocks_received;
 uint32_t packets_sent;
@@ -555,31 +556,38 @@ void print_radio_parms(msp430_radio_parms_t *radio_parms)
 
 // ------------------------------------------------------------------------------------------------
 // Send a radio block of maximum 255 bytes
-// dataBlock[0]  is the actual data size inside the block (counted from dataBlock[1])
-// dataBlock[1]  is the block countdown
-// dataBlock[2]  is the start of the actual data block
-// dataBlocSize  is the size of the complete data block excluding header sent over USB. This equals to packet_length.
-// ackblock      is the acknowledgement block
-// ackBlockSize  (input)  is the acknowledgement block allocated size
-//               (output) is the actual acknowledgement block size
-// timeout_us    is the acknowledgement timeout in microseconds
-// returns       the number of bytes sent over USB
+// dataBlock      is the start of the actual data block
+// dataSize       is the size of the useful data inside the block
+// blockCountdown is the block countdown provisoned for multi-block packets
+// blockSize      is the radio block size
+// ackblock       is the acknowledgement block
+// ackBlockSize   (input)  is the acknowledgement block allocated size
+//                (output) is the actual acknowledgement block size
+// timeout_us     is the acknowledgement timeout in microseconds
+// returns        the number of bytes sent over USB
 int radio_send_block(serial_t *serial_parms, 
-        uint8_t     *dataBlock, 
-        uint8_t     dataBlockSize,
-        uint8_t     *ackBlock, 
-        int         *ackBlockSize, 
-        uint32_t    timeout_us)
+        uint8_t  *dataBlock, 
+        uint8_t  dataSize,
+        uint8_t  blockCountdown, 
+        uint8_t  blockSize,
+        uint8_t  *ackBlock, 
+        int      *ackBlockSize, 
+        uint32_t timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
     int nbytes, ackbytes;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_TX;
-    dataBuffer[1] = dataBlockSize;
-    memcpy(&dataBuffer[2], dataBlock, dataBlockSize);
+    dataBuffer[1] = blockSize;
+    dataBuffer[2] = dataSize;
+    dataBuffer[3] = blockCountdown;
+    memcpy(&dataBuffer[4], dataBlock, blockSize-2);
 
-    nbytes = write_serial(serial_parms, dataBuffer, dataBlockSize+2);
-    verbprintf(2, "%d bytes written to USB\n", nbytes);
+    nbytes = write_serial(serial_parms, dataBuffer, blockSize+2);
+    verbprintf(2, "Block (%d,%d): %d bytes written to USB\n",
+        dataBuffer[2],
+        dataBuffer[3],
+        nbytes);
 
     ackbytes = read_usb(serial_parms, ackBlock, *ackBlockSize, timeout_us/10);
     *ackBlockSize = ackbytes;
@@ -588,13 +596,70 @@ int radio_send_block(serial_t *serial_parms,
 }
 
 // ------------------------------------------------------------------------------------------------
+// Transmission of a packet
+void radio_send_packet(serial_t *serial_parms,
+        uint8_t  *packet,
+        uint8_t  blockSize,
+        uint32_t size,
+        uint32_t block_timeout_us)
+// ------------------------------------------------------------------------------------------------
+{
+    int     block_countdown = size / (blockSize - 2);
+    uint8_t *block_start = packet;
+    uint8_t data_length;
+    uint8_t ackBuffer[DATA_BUFFER_SIZE];
+    int     nbytes, ackbytes;
+
+    while (block_countdown >= 0)
+    {
+        data_length = (size > blockSize - 2 ? blockSize - 2 : size);
+
+        memset(dataBuffer, 0, DATA_BUFFER_SIZE);
+        memcpy(&dataBuffer[2], block_start, data_length);
+        dataBuffer[0] = data_length + 1; // size takes countdown counter into account
+        dataBuffer[1] = (uint8_t) block_countdown;
+        ackbytes = DATA_BUFFER_SIZE; 
+
+        nbytes = radio_send_block(serial_parms, 
+            packet,
+            data_length,
+            block_countdown,
+            blockSize,
+            ackBuffer,
+            &ackbytes,
+            block_timeout_us);
+
+        verbprintf(2, "Block (%d,%d): %d bytes sent %d bytes received from radio_send_block\n", 
+            data_length,
+            block_countdown, 
+            nbytes, 
+            ackbytes); 
+        
+        if (ackbytes > 0)
+        {
+            print_block(3, ackBuffer, ackbytes);
+        }        
+
+        block_start += data_length;
+        size -= data_length;
+        block_countdown--;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 // Receive of a block
+// dataBlock     is the pointer to the actual data
+// dataBlockSize is the size of the radio block
+// size          is incremented by the size of the actual data
+// rssi          is updated with the RSSI byte
+// crc_lqi       is updated with the CRC+LQI combination byte
+// Returns the block countdown
 uint8_t radio_receive_block(serial_t *serial_parms, 
-        uint8_t     *dataBlock,
-        uint8_t     dataBlockSize, 
-        uint32_t    *size, 
-        uint8_t     *rssi,
-        uint8_t     *crc_lqi)
+        uint8_t  *dataBlock,
+        uint8_t  dataBlockSize, 
+        uint32_t *size, 
+        uint8_t  *rssi,
+        uint8_t  *crc_lqi)
 // ------------------------------------------------------------------------------------------------
 {
     int     nbytes;

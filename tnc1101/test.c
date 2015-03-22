@@ -85,7 +85,7 @@ int radio_receive_test(serial_t *serial_parms,
     arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint32_t packets_received, packet_time;
+    uint32_t packets_received;
     uint8_t  dataBlock[255];
     char     displayBlock[255];
     int      nbytes, block_countdown;
@@ -102,7 +102,6 @@ int radio_receive_test(serial_t *serial_parms,
     }
 
     memset(dataBlock, 0, 255);
-    packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
     
     verbprintf(0, "Receiving %d test packets of size %d\n", 
         arguments->repetition, 

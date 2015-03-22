@@ -237,15 +237,39 @@ int read_usb(serial_t *serial_parms, uint8_t *buffer, int size, uint32_t timeout
 {
     int      nbytes;
     uint32_t timeout = timeout_value;
+    uint8_t  block_size = 0, byte_count = 0;
+
+    // data block may span over many USB blocks
 
     do
     {
-        nbytes = read_serial(serial_parms, buffer, size);
-        usleep(10);
-        timeout--;
-    } while ((nbytes <= 0) && ((timeout_value == 0) || (timeout > 0)));
+        do // attempt to read one block
+        {
+            nbytes = read_serial(serial_parms, &buffer[byte_count], size);
+            usleep(10);
+            timeout--;
+        } while ((nbytes <= 0) && ((timeout_value == 0) || (timeout > 0)));
 
-    return nbytes;
+        if (nbytes > 0) // accumulate
+        {
+            byte_count += nbytes;
+        }
+
+        if ((byte_count >= 2) && (block_size == 0)) // get the block size. End condition is when block size plus header is received.
+        {
+            block_size = buffer[1];
+        }
+
+    } while((byte_count < block_size+2) && ((timeout_value == 0) || (timeout > 0)));
+
+    if (nbytes > 0)
+    {
+        return byte_count;
+    }
+    else
+    {
+        return nbytes;
+    }
 }
 
 /*

@@ -140,61 +140,53 @@ int radio_receive_test(serial_t *serial_parms,
     return 0;
 }
 
-/*
-// ------------------------------------------------------------------------------------------------
-// Reception test with interrupt handling
-int radio_receive_test(spi_parms_t *spi_parms, arguments_t *arguments)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t nb_rx, rx_bytes[RADIO_BUFSIZE];
-
-    init_radio_int(spi_parms, arguments);
-    PI_CC_SPIStrobe(spi_parms, PI_CCxxx0_SFRX); // Flush Rx FIFO
-
-    verbprintf(0, "Starting...\n");
-
-    while((arguments->repetition == 0) || (packets_received < arguments->repetition))
-    {
-        radio_init_rx(spi_parms, arguments); // Init for new packet to receive
-        radio_turn_rx(spi_parms);            // Put back into Rx
-
-        do
-        {
-            radio_wait_free(); // make sure no radio operation is in progress
-            nb_rx = radio_receive_packet(spi_parms, arguments, rx_bytes);
-        } while(nb_rx == 0);
-
-        rx_bytes[nb_rx] = '\0';
-        verbprintf(0,"\"%s\"\n", rx_bytes);
-    }
-}
 
 // ------------------------------------------------------------------------------------------------
 // Simple echo test
-void radio_test_echo(spi_parms_t *spi_parms, radio_parms_t *radio_parms, arguments_t *arguments, uint8_t active)
+// If active = 1 then start with Tx else start with Rx
+int radio_echo_test(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments, 
+    uint8_t active)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t  nb_bytes, rtx_bytes[RADIO_BUFSIZE];
+    uint32_t packet_time, packets_sent, packets_received;
     uint8_t  rtx_toggle, rtx_count;
-    uint32_t timeout_value, timeout;
-    struct timeval tdelay, tstart, tstop;
+    uint8_t  dataBlock[255], displayBlock[255], ackBlock[32];
+    int      nbytes, block_countdown, ackbytes = 32;
+    uint8_t  rssi, lqi, crc, crc_lqi;
 
-    init_radio_int(spi_parms, arguments);
-    radio_flush_fifos(spi_parms);
+    if (!init_radio(serial_parms, radio_parms, arguments))
+    {
+        fprintf(stderr, "Cannot initialize radio. Aborting...\n");
+        return 1;
+    }
+    else
+    {
+        usleep(100000);
+    }
 
-    timeout_value = (uint32_t) (arguments->packet_length * 10 * radio_get_byte_time(radio_parms));
-    timeout = 0;
+    memset(dataBlock, 0, 255);    
 
     if (active)
     {
-        nb_bytes = strlen(arguments->test_phrase);
-        strcpy(rtx_bytes, arguments->test_phrase);
+        dataBlock[0] = strlen(arguments->test_phrase) + 1; // + block countdown
+        dataBlock[1] = 0; // block countdown of zero for a single block packet
         rtx_toggle = 1;
     }
     else
     {
         rtx_toggle = 0;
     }
+
+    verbprintf(0, "Starting echo test with %d test packets of size %d. Begin with %s...\n", 
+        arguments->repetition, 
+        arguments->packet_length,
+        (rtx_toggle ? "Tx" : "Rx"));
+
+    packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);    
+    packets_sent = 0;
+    packets_received = 0;
 
     while (packets_sent < arguments->repetition)
     {
@@ -211,10 +203,24 @@ void radio_test_echo(spi_parms_t *spi_parms, radio_parms_t *radio_parms, argumen
             {
                 verbprintf(0, "Sending #%d\n", packets_sent);
 
-                radio_wait_free(); // make sure no radio operation is in progress
-                radio_send_packet(spi_parms, arguments, rtx_bytes, nb_bytes);
-                radio_wait_a_bit(4);
-                timeout = timeout_value; // arm Rx timeout
+                nbytes = radio_send_block(serial_parms, 
+                    dataBlock, 
+                    arguments->packet_length, 
+                    ackBlock, 
+                    &ackbytes, 
+                    packet_time/4);
+
+                verbprintf(2, "Packet #%d: %d bytes sent %d bytes received from radio_send_block\n", 
+                    packets_sent, 
+                    nbytes, 
+                    ackbytes); 
+                
+                if (ackbytes > 0)
+                {
+                    print_block(3, ackBlock, ackbytes);
+                }
+
+                packets_sent++;
                 rtx_count++;
                 rtx_toggle = 0; // next is Rx
             }
@@ -233,42 +239,39 @@ void radio_test_echo(spi_parms_t *spi_parms, radio_parms_t *radio_parms, argumen
             {
                 verbprintf(0, "Receiving #%d\n", packets_received);
 
-                radio_init_rx(spi_parms, arguments); // Init for new packet to receive
-                radio_turn_rx(spi_parms);            // Put back into Rx
+                nbytes = 0;
 
-                if (timeout > 0)
+                block_countdown = radio_receive_block(serial_parms, 
+                    dataBlock,
+                    arguments->packet_length, 
+                    &nbytes,
+                    &rssi, 
+                    &crc_lqi);
+                
+                crc = get_crc_lqi(crc_lqi, &lqi);
+
+                verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI: %.1f dBm CRC: %s\n",
+                    packets_received, 
+                    block_countdown, 
+                    nbytes, 
+                    rssi_dbm(rssi),
+                    (crc ? "OK" : "KO"));
+
+                if (crc)
                 {
-                    gettimeofday(&tstart, NULL);
+                    strncpy(displayBlock, dataBlock, nbytes);
+                    displayBlock[nbytes] = '\0';
+                    verbprintf(1, ">%s\n", displayBlock);
                 }
 
-                do
-                {
-                    radio_wait_free(); // make sure no radio operation is in progress
-                    nb_bytes = radio_receive_packet(spi_parms, arguments, rtx_bytes);
-                    radio_wait_a_bit(4);
-
-                    if (timeout > 0)
-                    {
-                        gettimeofday(&tstop, NULL);
-                        timeval_subtract(&tdelay, &tstop, &tstart);
-
-                        if (ts_us(&tdelay) > timeout)
-                        {
-                            verbprintf(0, "Time out reached. Faking receiving data\n");
-                            nb_bytes = strlen(arguments->test_phrase);
-                            strcpy(rtx_bytes, arguments->test_phrase);                            
-                            break;
-                        }
-                    }
-
-                } while (nb_bytes == 0);
-
+                packets_received++;
                 rtx_count++;
                 rtx_toggle = 1; // next is Tx                
             }
 
         } while(rtx_count < 2); 
-    }    
+    }
+
+    return 0;  
 }
 
-*/

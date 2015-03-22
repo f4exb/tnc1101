@@ -31,7 +31,9 @@ char *tnc_mode_names[] = {
     "Radio status",
     "Radio init",
     "Radio transmission test",
-    "Radio reception test"
+    "Radio reception test",
+    "Radio echo test starting with Tx",
+    "Radio echo test starting with Rx"
 };
 
 char *modulation_names[] = {
@@ -588,7 +590,15 @@ int main (int argc, char **argv)
     {
         radio_receive_test(&serial_parms, &radio_parms, &arguments);
     }
-    
+    else if (arguments.tnc_mode == TNC_TEST_ECHO_TX)
+    {
+        radio_echo_test(&serial_parms, &radio_parms, &arguments, 1);
+    } 
+    else if (arguments.tnc_mode == TNC_TEST_ECHO_RX)
+    {
+        radio_echo_test(&serial_parms, &radio_parms, &arguments, 0);
+    } 
+
     /*
     init_radio_parms(&radio_parameters, &arguments);
     ret = init_radio(&radio_parameters, &spi_parameters, &arguments);

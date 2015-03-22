@@ -172,6 +172,7 @@ int radio_echo_test(serial_t *serial_parms,
     {
         dataBlock[0] = strlen(arguments->test_phrase) + 1; // + block countdown
         dataBlock[1] = 0; // block countdown of zero for a single block packet
+        strncpy(&dataBlock[2], arguments->test_phrase, 253);
         rtx_toggle = 1;
     }
     else
@@ -242,7 +243,7 @@ int radio_echo_test(serial_t *serial_parms,
                 nbytes = 0;
 
                 block_countdown = radio_receive_block(serial_parms, 
-                    dataBlock,
+                    &dataBlock[2],
                     arguments->packet_length, 
                     &nbytes,
                     &rssi, 
@@ -259,7 +260,7 @@ int radio_echo_test(serial_t *serial_parms,
 
                 if (crc)
                 {
-                    strncpy(displayBlock, dataBlock, nbytes);
+                    strncpy(displayBlock, &dataBlock[2], nbytes);
                     displayBlock[nbytes] = '\0';
                     verbprintf(1, ">%s\n", displayBlock);
                 }

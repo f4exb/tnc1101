@@ -648,18 +648,22 @@ void radio_send_packet(serial_t *serial_parms,
 
 // ------------------------------------------------------------------------------------------------
 // Receive of a block
-// dataBlock     is the pointer to the actual data
-// dataBlockSize is the size of the radio block
-// size          is incremented by the size of the actual data
-// rssi          is updated with the RSSI byte
-// crc_lqi       is updated with the CRC+LQI combination byte
-// Returns the block countdown
-uint8_t radio_receive_block(serial_t *serial_parms, 
+// dataBlock      is the pointer to the actual data
+// dataBlockSize  is the size of the radio block
+// blockCountdown is the block countdown
+// size           is incremented by the size of the actual data
+// rssi           is updated with the RSSI byte
+// crc_lqi        is updated with the CRC+LQI combination byte
+// timeout_us     is the timeout in microseconds to receive block
+// Returns the number of bytes read from USB. It has to be greater than 4 for data to be valid
+int radio_receive_block(serial_t *serial_parms, 
         uint8_t  *dataBlock,
-        uint8_t  dataBlockSize, 
+        uint8_t  dataBlockSize,
+        uint8_t  *blockCountdown,
         uint32_t *size, 
         uint8_t  *rssi,
-        uint8_t  *crc_lqi)
+        uint8_t  *crc_lqi,
+        uint32_t timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
     int     nbytes;
@@ -672,19 +676,19 @@ uint8_t radio_receive_block(serial_t *serial_parms,
     nbytes = write_serial(serial_parms, dataBuffer, 2);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
 
-    nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 0);
+    nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, timeout_us/10);
     verbprintf(2, "%d bytes read from USB\n", nbytes);
-    print_block(3, dataBuffer, nbytes);
 
-    if (nbytes < 4)
+    if (nbytes > 0)
     {
-        *crc_lqi = 0;
-        return 0;
+        print_block(3, dataBuffer, nbytes);
     }
-    else
+
+    if (nbytes >= 4)
     {
         block_size = dataBuffer[1]; // complete size less command byte and counter itself (2 bytes)
         data_size = dataBuffer[2] - 1;
+        *blockCountdown = dataBuffer[3]; // block countdown
         *size += data_size;
 
         if (nbytes > 4) // some data is returned
@@ -697,9 +701,77 @@ uint8_t radio_receive_block(serial_t *serial_parms,
             *rssi    = dataBuffer[block_size+2 - 2]; // byte before last byte is RSSI
             *crc_lqi = dataBuffer[block_size+2 - 1]; // last byte is CRC+LQI combination byte
         }
-
-        return dataBuffer[3]; // block countdown
     }
+
+    return nbytes;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Receive of a packet
+// packet    is the pointer to the reception area
+// blockSize is the size of the radio block
+// ..timeout is the timoeut in microseconds between successive blocks
+// Returns   actual data size
+uint32_t radio_receive_packet(serial_t *serial_parms,
+    uint8_t  *packet,
+    uint8_t  blockSize,
+    uint32_t inter_block_timeout_us)
+// ------------------------------------------------------------------------------------------------
+{
+    int      nbytes;
+    uint8_t  crc_lqi, crc, lqi, rssi, block_countdown, block_count = 0;
+    uint32_t packet_size = 0;
+    uint32_t timeout = 0;
+
+    do
+    {
+        nbytes = radio_receive_block(serial_parms, 
+            &packet[packet_size],
+            blockSize,
+            &block_countdown,
+            &packet_size,
+            &rssi,
+            &crc_lqi,
+            timeout);
+
+        if (nbytes <= 4) // >4 for data to be valid. If not consider it's a timeout.
+        {
+            verbprintf(1, "RADIO: timeout trying to read the next block. Aborting packet\n");
+            return 0;
+        }
+
+        if (!block_count)
+        {
+            block_count = block_countdown + 1;
+            timeout = inter_block_timeout_us;
+        }
+
+        block_count--;
+
+        if (block_count != block_countdown)
+        {
+            verbprintf(1, "RADIO: block sequence error. Aborting packet\n");
+            return 0;
+        }
+
+        crc = get_crc_lqi(crc_lqi, &lqi);
+
+        if (crc)
+        {
+            verbprintf(2, "Block countdown: %d Size so far: %d RSSI: %.1f dBm CRC OK\n",
+                block_countdown, 
+                packet_size, 
+                rssi_dbm(rssi));
+        }
+        else
+        {
+            verbprintf(1, "RADIO: CRC error, aborting packet\n");
+            return 0;
+        }
+
+    } while (block_countdown > 0);
+
+    return packet_size;
 }
 
 /*
@@ -756,67 +828,6 @@ void radio_init_rx(spi_parms_t *spi_parms, arguments_t *arguments)
     PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_IOCFG2, 0x00); // GDO2 output pin config RX mode
 }
 
-// ------------------------------------------------------------------------------------------------
-// Receive of a packet
-uint32_t radio_receive_packet(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *packet)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t  crc, block_countdown, block_count = 0;
-    uint32_t packet_size = 0;
-    uint32_t timeout, timeout_value = (arguments->packet_length < 32 ? 16 : arguments->packet_length / 2); // timeout value in bocks of 4 2-FSK bytes
-
-    if (blocks_received == radio_int_data.packet_rx_count) // no block received
-    {
-        return 0;
-    }
-    else // block received
-    {
-        do
-        {
-            block_countdown = radio_receive_block(spi_parms, arguments, &packet[packet_size], &packet_size, &crc);
-            radio_init_rx(spi_parms, arguments); // init for new block to receive Rx
-
-            if (!block_count)
-            {
-                block_count = block_countdown + 1;
-            }
-
-            block_count--;
-
-            if (block_count != block_countdown)
-            {
-                verbprintf(1, "RADIO: block sequence error, aborting packet\n");
-                return 0;
-            }
-
-            if (!crc)
-            {
-                verbprintf(1, "RADIO: CRC error, aborting packet\n");
-                return 0;
-            }
-
-            timeout = timeout_value;
-
-            // Wait for the next block to be received if any is expected
-            while((block_countdown > 0) && (blocks_received == radio_int_data.packet_rx_count) && (timeout))
-            {
-                radio_wait_a_bit(4);
-                timeout--;
-            }
-
-            if (!timeout)
-            {
-                verbprintf(1, "RADIO: timeout waiting for the next block, aborting packet\n");
-                return 0;
-            }
-
-        } while (block_countdown > 0);
-
-        packets_received++;
-
-        return packet_size;
-    }
-}
 
 // ------------------------------------------------------------------------------------------------
 // Transmission of a block

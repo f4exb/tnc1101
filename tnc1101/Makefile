@@ -21,7 +21,7 @@ serial.o: main.h serial.h serial.c
 usb_test.o: ../common/msp430_interface.h usb_test.h usb_test.c
 	$(CCPREFIX)gcc $(CFLAGS) $(EXTRA_CFLAGS) -c -o usb_test.o usb_test.c
 
-test.o: ../common/msp430_interface.h test.h test.c
+test.o: ../common/msp430_interface.h test.h radio.h main.h test.c
 	$(CCPREFIX)gcc $(CFLAGS) $(EXTRA_CFLAGS) -c -o test.o test.c
 
 util.o: util.h util.c

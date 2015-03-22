@@ -128,11 +128,11 @@ int radio_receive_test(serial_t *serial_parms,
     arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint32_t packets_received;
+    uint32_t packets_received, size;
     uint8_t  dataBlock[255];
     char     displayBlock[255];
-    int      nbytes, block_countdown;
-    uint8_t  rssi, lqi, crc, crc_lqi;
+    uint8_t  rssi, lqi, crc, crc_lqi, block_countdown;
+    int      nbytes;
 
     if (!init_radio(serial_parms, radio_parms, arguments))
     {
@@ -152,29 +152,38 @@ int radio_receive_test(serial_t *serial_parms,
 
     while (packets_received < arguments->repetition)
     {
-        nbytes = 0;
+        size = 0;
 
-        block_countdown = radio_receive_block(serial_parms, 
+        nbytes = radio_receive_block(serial_parms, 
             dataBlock,
-            arguments->packet_length, 
-            &nbytes,
+            arguments->packet_length,
+            &block_countdown,
+            &size,
             &rssi, 
-            &crc_lqi);
-        
-        crc = get_crc_lqi(crc_lqi, &lqi);
+            &crc_lqi,
+            0);
 
-        verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI: %.1f dBm CRC: %s\n",
-            packets_received, 
-            block_countdown, 
-            nbytes, 
-            rssi_dbm(rssi),
-            (crc ? "OK" : "KO"));
-
-        if (crc)
+        if (nbytes > 4)
         {
-            strncpy(displayBlock, dataBlock, nbytes);
-            displayBlock[nbytes] = '\0';
-            verbprintf(1, ">%s\n", displayBlock);
+            crc = get_crc_lqi(crc_lqi, &lqi);
+
+            verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI: %.1f dBm CRC: %s\n",
+                packets_received, 
+                block_countdown, 
+                size, 
+                rssi_dbm(rssi),
+                (crc ? "OK" : "KO"));
+
+            if (crc)
+            {
+                strncpy(displayBlock, dataBlock, size);
+                displayBlock[size] = '\0';
+                verbprintf(1, ">%s\n", displayBlock);
+            }
+        }
+        else
+        {
+            verbprintf(1, "Packet #%d: not received or incomplete\n");
         }
 
         packets_received++;
@@ -193,11 +202,11 @@ int radio_echo_test(serial_t *serial_parms,
     uint8_t active)
 // ------------------------------------------------------------------------------------------------
 {
-    uint32_t packet_time, packets_sent, packets_received;
+    uint32_t packet_time, packets_sent, packets_received, size, rx_timeout;
     uint8_t  rtx_toggle, rtx_count;
     uint8_t  dataBlock[255], displayBlock[255], ackBlock[32];
-    int      nbytes, block_countdown, ackbytes = 32;
-    uint8_t  rssi, lqi, crc, crc_lqi;
+    int      nbytes, ackbytes = 32;
+    uint8_t  rssi, lqi, crc, crc_lqi, block_countdown;
     uint8_t  data_size;
 
     if (!init_radio(serial_parms, radio_parms, arguments))
@@ -211,26 +220,27 @@ int radio_echo_test(serial_t *serial_parms,
     }
 
     memset(dataBlock, 0, 255);    
+    packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);    
+    packets_sent = 0;
+    packets_received = 0;
 
     if (active)
     {
         data_size = strlen(arguments->test_phrase) + 1; // + block countdown
         strncpy(dataBlock, arguments->test_phrase, 253);
         rtx_toggle = 1;
+        rx_timeout = packet_time + arguments->tnc_keyup_delay;
     }
     else
     {
         rtx_toggle = 0;
+        rx_timeout = 0;
     }
 
     verbprintf(0, "Starting echo test with %d test packets of size %d. Begin with %s...\n", 
         arguments->repetition, 
         arguments->packet_length,
         (rtx_toggle ? "Tx" : "Rx"));
-
-    packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);    
-    packets_sent = 0;
-    packets_received = 0;
 
     while (packets_sent < arguments->repetition)
     {
@@ -285,36 +295,46 @@ int radio_echo_test(serial_t *serial_parms,
             {
                 verbprintf(0, "Receiving #%d\n", packets_received);
 
-                nbytes = 0;
+                size = 0;
 
-                block_countdown = radio_receive_block(serial_parms, 
+                nbytes = radio_receive_block(serial_parms, 
                     dataBlock,
-                    arguments->packet_length, 
-                    &nbytes,
+                    arguments->packet_length,
+                    &block_countdown, 
+                    &size,
                     &rssi, 
-                    &crc_lqi);
+                    &crc_lqi,
+                    rx_timeout/4);
                 
-                crc = get_crc_lqi(crc_lqi, &lqi);
-
-                verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI: %.1f dBm CRC: %s\n",
-                    packets_received, 
-                    block_countdown, 
-                    nbytes, 
-                    rssi_dbm(rssi),
-                    (crc ? "OK" : "KO"));
-
-                if (crc)
+                if (nbytes > 4)
                 {
-                    strncpy(displayBlock, dataBlock, nbytes);
-                    displayBlock[nbytes] = '\0';
-                    verbprintf(1, ">%s\n", displayBlock);
-                    data_size = nbytes + 1; // + block countdown
+                    crc = get_crc_lqi(crc_lqi, &lqi);
+
+                    verbprintf(1, "Packet #%d: Block countdown: %d Data size: %d RSSI: %.1f dBm CRC: %s\n",
+                        packets_received, 
+                        block_countdown, 
+                        size, 
+                        rssi_dbm(rssi),
+                        (crc ? "OK" : "KO"));
+
+                    if (crc)
+                    {
+                        strncpy(displayBlock, dataBlock, size);
+                        displayBlock[size] = '\0';
+                        verbprintf(1, ">%s\n", displayBlock);
+                        data_size = size + 1; // + block countdown
+                    }
+                    else
+                    {
+                        data_size = 1;
+                    }
                 }
                 else
                 {
-                    data_size = 1;
+                    verbprintf(1, "Packet #%d: Timeout or block inmcomplete\n", packets_received);
                 }
 
+                rx_timeout = packet_time + arguments->tnc_keyup_delay;
                 packets_received++;
                 rtx_count++;
                 rtx_toggle = 1; // next is Tx                

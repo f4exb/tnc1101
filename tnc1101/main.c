@@ -33,7 +33,8 @@ char *tnc_mode_names[] = {
     "Radio block reception test",
     "Radio block echo test starting with Tx",
     "Radio block echo test starting with Rx",
-    "Radio packet transmission test"
+    "Radio packet transmission test",
+    "Radio packet reception test"
 };
 
 char *modulation_names[] = {
@@ -230,7 +231,7 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Modulation ..........: %s\n", modulation_names[arguments->modulation]);
     fprintf(stderr, "Rate nominal ........: %d Baud\n", rate_values[arguments->rate]);
     fprintf(stderr, "Rate skew ...........: %.2f\n", arguments->rate_skew);
-    fprintf(stderr, "Packet delay ........: ~%d bytes with 2-FSK\n", arguments->packet_delay);
+    fprintf(stderr, "Packet delay ........: ~%d bytes\n", arguments->packet_delay);
     fprintf(stderr, "Modulation index ....: %.2f\n", arguments->modulation_index);
     fprintf(stderr, "Frequency ...........: %d Hz\n", arguments->freq_hz);
     fprintf(stderr, "Packet length .......: %d bytes\n", arguments->packet_length);
@@ -575,7 +576,7 @@ int main (int argc, char **argv)
     if (arguments.verbose_level > 0)
     {
         print_args(&arguments);
-        print_radio_parms(&radio_parms);
+        print_radio_parms(&radio_parms, &arguments);
         fprintf(stderr, "\n");
     }
 
@@ -610,6 +611,10 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_TEST_TX_PACKET)
     {
         radio_packet_transmit_test(&serial_parms, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_RX_PACKET)
+    {
+        radio_packet_receive_test(&serial_parms, &radio_parms, &arguments);
     }
 
     /*

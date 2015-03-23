@@ -233,6 +233,7 @@ void get_rate_words(arguments_t *arguments, msp430_radio_parms_t *radio_parms)
 
 // ------------------------------------------------------------------------------------------------
 // Read USB with timeout
+// Timeout is in 10's of microseconds
 int read_usb(serial_t *serial_parms, uint8_t *buffer, int size, uint32_t timeout_value)
 // ------------------------------------------------------------------------------------------------
 {
@@ -524,7 +525,7 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
 //   o Data rate (Baud) .....: Rate = (Fxosc / 2^28) * (256 + DRATE_M) * 2^DRATE_E
 //   o Deviation ............: Df   = (Fxosc / 2^17) * (8 + DEVIATION_M) * 2^DEVIATION_E
 
-void print_radio_parms(msp430_radio_parms_t *radio_parms)
+void print_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
     float f_xtal = F_XTAL_MHZ * 1e6;
@@ -548,10 +549,12 @@ void print_radio_parms(msp430_radio_parms_t *radio_parms)
     fprintf(stderr, "Data whitening .........: %s\n", (radio_parms->fec_whitening & 0x02 ? "on" : "off"));
     fprintf(stderr, "Packet length ..........: %d bytes\n",
         radio_parms->packet_length);
-    fprintf(stderr, "Packet time ............: %d us\n",
-        (uint32_t) (radio_parms->packet_length * radio_get_byte_time(radio_parms)));
     fprintf(stderr, "Byte time ..............: %d us\n",
         ((uint32_t) radio_get_byte_time(radio_parms)));
+    fprintf(stderr, "Packet time ............: %d us\n",
+        (uint32_t) (radio_parms->packet_length * radio_get_byte_time(radio_parms)));
+    fprintf(stderr, "Block delay ............: %d us\n",
+        (uint32_t) (arguments->packet_delay * radio_get_byte_time(radio_parms)));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -601,6 +604,7 @@ void radio_send_packet(serial_t *serial_parms,
         uint8_t  *packet,
         uint8_t  blockSize,
         uint32_t size,
+        uint32_t block_delay_us,
         uint32_t block_timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
@@ -613,16 +617,11 @@ void radio_send_packet(serial_t *serial_parms,
     while (block_countdown >= 0)
     {
         data_length = (size > blockSize - 2 ? blockSize - 2 : size);
-
-        memset(dataBuffer, 0, DATA_BUFFER_SIZE);
-        memcpy(&dataBuffer[2], block_start, data_length);
-        dataBuffer[0] = data_length + 1; // size takes countdown counter into account
-        dataBuffer[1] = (uint8_t) block_countdown;
         ackbytes = DATA_BUFFER_SIZE; 
 
         nbytes = radio_send_block(serial_parms, 
             packet,
-            data_length,
+            data_length + 1, // size takes countdown counter into account
             block_countdown,
             blockSize,
             ackBuffer,
@@ -630,7 +629,7 @@ void radio_send_packet(serial_t *serial_parms,
             block_timeout_us);
 
         verbprintf(2, "Block (%d,%d): %d bytes sent %d bytes received from radio_send_block\n", 
-            data_length,
+            data_length + 1,
             block_countdown, 
             nbytes, 
             ackbytes); 
@@ -643,6 +642,11 @@ void radio_send_packet(serial_t *serial_parms,
         block_start += data_length;
         size -= data_length;
         block_countdown--;
+
+        if (block_delay_us)
+        {
+            usleep(block_delay_us); // pause before sending the next block
+        }
     }
 }
 
@@ -737,6 +741,7 @@ uint32_t radio_receive_packet(serial_t *serial_parms,
         if (nbytes <= 4) // >4 for data to be valid. If not consider it's a timeout.
         {
             verbprintf(1, "RADIO: timeout trying to read the next block. Aborting packet\n");
+            packet[0] = '\0';
             return 0;
         }
 
@@ -751,6 +756,7 @@ uint32_t radio_receive_packet(serial_t *serial_parms,
         if (block_count != block_countdown)
         {
             verbprintf(1, "RADIO: block sequence error. Aborting packet\n");
+            packet[0] = '\0';
             return 0;
         }
 
@@ -766,6 +772,7 @@ uint32_t radio_receive_packet(serial_t *serial_parms,
         else
         {
             verbprintf(1, "RADIO: CRC error, aborting packet\n");
+            packet[0] = '\0';
             return 0;
         }
 

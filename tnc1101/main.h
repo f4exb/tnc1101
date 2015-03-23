@@ -19,6 +19,7 @@ typedef enum tnc_mode_e {
     TNC_TEST_ECHO_TX,
     TNC_TEST_ECHO_RX,
     TNC_TEST_TX_PACKET,
+    TNC_TEST_RX_PACKET,
     NUM_TNC
 } tnc_mode_t;
 

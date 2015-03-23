@@ -70,6 +70,7 @@ void     radio_send_packet(serial_t *serial_parms,
             uint8_t  *packet,
             uint8_t  dataBlockSize,
             uint32_t size,
+            uint32_t block_delay_us,
             uint32_t block_timeout_us);
 
 int      radio_receive_block(serial_t *serial_parms, 

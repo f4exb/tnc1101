@@ -6,8 +6,8 @@ clean:
 	rm -f *.o tnc1101
 	 
 
-tnc1101: main.o util.o usb_test.o serial.o radio.o test.o
-	$(CCPREFIX)gcc $(LDFLAGS) -s -lm -o tnc1101 main.o serial.o util.o usb_test.o test.o radio.o
+tnc1101: main.o util.o usb_test.o serial.o radio.o test.o bulk.o
+	$(CCPREFIX)gcc $(LDFLAGS) -s -lm -o tnc1101 main.o serial.o util.o usb_test.o test.o radio.o bulk.o
 
 main.o: ../common/msp430_interface.h main.h main.c
 	$(CCPREFIX)gcc $(CFLAGS) $(EXTRA_CFLAGS) -c -o main.o main.c
@@ -23,6 +23,9 @@ usb_test.o: ../common/msp430_interface.h usb_test.h usb_test.c
 
 test.o: ../common/msp430_interface.h test.h radio.h main.h test.c
 	$(CCPREFIX)gcc $(CFLAGS) $(EXTRA_CFLAGS) -c -o test.o test.c
+
+bulk.o: ../common/msp430_interface.h bulk.h radio.h main.h bulk.c
+	$(CCPREFIX)gcc $(CFLAGS) $(EXTRA_CFLAGS) -c -o bulk.o bulk.c
 
 util.o: util.h util.c
 	$(CCPREFIX)gcc $(CFLAGS) $(EXTRA_CFLAGS) -c -o util.o util.c

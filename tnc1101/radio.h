@@ -47,11 +47,11 @@ void     radio_flush_fifos(spi_parms_t *spi_parms);
 
 void     radio_turn_idle(spi_parms_t *spi_parms);
 void     radio_turn_rx(spi_parms_t *spi_parms);
-
-void     print_radio_parms(radio_parms_t *radio_parms);
 */
+
 float    radio_get_byte_time(msp430_radio_parms_t *radio_parms);
 float    radio_get_rate(msp430_radio_parms_t *radio_parms);
+void     print_radio_parms(msp430_radio_parms_t *radio_parms);
 
 void     init_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments);
 int      init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, arguments_t *arguments);

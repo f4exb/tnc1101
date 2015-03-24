@@ -26,6 +26,8 @@ msp430_radio_parms_t radio_parms;
 
 char *tnc_mode_names[] = {
     "KISS TNC",
+    "File bulk transmission",
+    "File bulk reception",
     "USB echo",
     "Radio status",
     "Radio init",
@@ -98,8 +100,8 @@ static struct argp_option options[] = {
     {"whitening",  'W', 0, 0, "Activate whitening (default off)"},
     {"frequency",  'f', "FREQUENCY_HZ", 0, "Frequency in Hz (default: 433600000)"},
     {"if-frequency",  'I', "IF_FREQUENCY_HZ", 0, "Intermediate frequency in Hz (default: 310000)"},
-    {"packet-length",  'P', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
-    {"large-packet-length",  'p', "LARGE_PACKET_LENGTH", 0, "Large packet length (>255 bytes) for packet test only (default: 480)"},
+    {"packet-length",  'p', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
+    {"large-packet-length",  'P', "LARGE_PACKET_LENGTH", 0, "Large packet length (>255 bytes) for packet test only (default: 480)"},
     {"variable-length",  'V', 0, 0, "Variable packet length. Given packet length becomes maximum length (default off)"},
     {"tnc-mode",  't', "TNC_MODE", 0, "TNC mode of operation, See long help (-H) option fpr details (default : 0 KISS)"},
     {"test-phrase",  'y', "TEST_PHRASE", 0, "Set a test phrase to be used in test (default : \"Hello, World!\")"},
@@ -113,10 +115,18 @@ static struct argp_option options[] = {
     {"tnc-keyup-delay",  302, "KEYUP_DELAY_US", 0, "TNC keyup delay in microseconds (default: 10ms). In KISS mode it can be changed live via kissparms."},
     {"tnc-keydown-delay",  303, "KEYDOWN_DELAY_US", 0, "FUTUR USE: TNC keydown delay in microseconds (default: 0 inactive)"},
     {"tnc-switchover-delay",  304, "SWITCHOVER_DELAY_US", 0, "FUTUR USE: TNC switchover delay in microseconds (default: 0 inactive)"},
+    {"bulk-file",  310, "FILE_NAME", 0, "File name to send or receive with bulk transmission (default: '-' stdin or stdout"},
     {0}
 };
 
+// === Static functions declarations ==============================================================
+
 static void delete_args(arguments_t *arguments);
+static void file_bulk_transmit(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments);
+
+// === Static functions ===========================================================================
 
 // ------------------------------------------------------------------------------------------------
 // Terminator
@@ -172,6 +182,7 @@ static void init_args(arguments_t *arguments)
     arguments->print_long_help = 0;
     arguments->usbacm_device = 0;
     arguments->serial_device = 0;
+    arguments->bulk_filename = 0;
     arguments->serial_speed = B38400;
     arguments->serial_speed_n = 38400;
     arguments->spi_device = 0;
@@ -220,6 +231,34 @@ void delete_args(arguments_t *arguments)
 }
 
 // ------------------------------------------------------------------------------------------------
+// Bulk transmit the contents of a file (or stdin, or pipe)
+static void file_bulk_transmit(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
+// ------------------------------------------------------------------------------------------------
+{
+    FILE *fp;
+
+    if (arguments->bulk_filename, "-") // not stdin
+    {
+        fp = fopen(arguments->bulk_filename, "r");
+    }
+    else // stdin
+    {
+        fp = stdin;
+    }
+
+    if (bulk_transmit(fp, serial_parms, radio_parms, arguments))
+    {
+        fprintf(stderr, "error transmitting %s\n", arguments->bulk_filename);
+    }
+    else
+    {
+        fprintf(stderr, "%s transmitted successfully\n", arguments->bulk_filename);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 // Print MFSK data
 static void print_args(arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
@@ -231,7 +270,7 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Modulation ..........: %s\n", modulation_names[arguments->modulation]);
     fprintf(stderr, "Rate nominal ........: %d Baud\n", rate_values[arguments->rate]);
     fprintf(stderr, "Rate skew ...........: %.2f\n", arguments->rate_skew);
-    fprintf(stderr, "Packet delay ........: ~%d bytes\n", arguments->packet_delay);
+    fprintf(stderr, "Block delay .........: %.2f ms\n", arguments->packet_delay / 1000.0);
     fprintf(stderr, "Modulation index ....: %.2f\n", arguments->modulation_index);
     fprintf(stderr, "Frequency ...........: %d Hz\n", arguments->freq_hz);
     fprintf(stderr, "Packet length .......: %d bytes\n", arguments->packet_length);
@@ -271,6 +310,8 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "TNC keyup delay .....: %.2f ms\n", arguments->tnc_keyup_delay / 1000.0);
     fprintf(stderr, "TNC keydown delay ...: %.2f ms\n", arguments->tnc_keydown_delay / 1000.0);
     fprintf(stderr, "TNC switch delay ....: %.2f ms\n", arguments->tnc_switchover_delay / 1000.0);
+    fprintf(stderr, "--- bulk transfer ---\n");
+    fprintf(stderr, "Bulk filename .......: %s\n", arguments->bulk_filename);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -390,13 +431,13 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
                 argp_usage(state);
             break; 
         // Packet length
-        case 'P':
+        case 'p':
             arguments->packet_length = strtol(arg, &end, 10) % 254;
             if (*end)
                 argp_usage(state);
             break; 
         // Large packet length
-        case 'p':
+        case 'P':
             arguments->large_packet_length = strtol(arg, &end, 10) % (1<<16);
             if (*end)
                 argp_usage(state);
@@ -501,6 +542,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
             if (*end)
                 argp_usage(state);
             break; 
+        // Bkulk filename
+        case 310:
+            arguments->bulk_filename = strdup(arg);
+            break;
         default:
             return ARGP_ERR_UNKNOWN;
     }
@@ -570,13 +615,18 @@ int main (int argc, char **argv)
         arguments.spi_device = strdup("/dev/spidev0.0");
     }
 
+    if (!arguments.bulk_filename)
+    {
+        arguments.bulk_filename = strdup("-");
+    }
+
     set_serial_parameters(&serial_parms, arguments.usbacm_device, get_serial_speed(115200, &arguments.serial_speed_n));
     init_radio_parms(&radio_parms, &arguments);
 
     if (arguments.verbose_level > 0)
     {
         print_args(&arguments);
-        print_radio_parms(&radio_parms, &arguments);
+        print_radio_parms(&radio_parms);
         fprintf(stderr, "\n");
     }
 
@@ -615,6 +665,10 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_TEST_RX_PACKET)
     {
         radio_packet_receive_test(&serial_parms, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_BULK_TX)
+    {
+        file_bulk_transmit(&serial_parms, &radio_parms, &arguments);
     }
 
     /*

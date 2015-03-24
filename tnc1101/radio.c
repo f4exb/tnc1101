@@ -525,7 +525,7 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
 //   o Data rate (Baud) .....: Rate = (Fxosc / 2^28) * (256 + DRATE_M) * 2^DRATE_E
 //   o Deviation ............: Df   = (Fxosc / 2^17) * (8 + DEVIATION_M) * 2^DEVIATION_E
 
-void print_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments)
+void print_radio_parms(msp430_radio_parms_t *radio_parms)
 // ------------------------------------------------------------------------------------------------
 {
     float f_xtal = F_XTAL_MHZ * 1e6;
@@ -553,8 +553,6 @@ void print_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments
         ((uint32_t) radio_get_byte_time(radio_parms)));
     fprintf(stderr, "Packet time ............: %d us\n",
         (uint32_t) (radio_parms->packet_length * radio_get_byte_time(radio_parms)));
-    fprintf(stderr, "Block delay ............: %d us\n",
-        (uint32_t) (arguments->packet_delay * radio_get_byte_time(radio_parms)));
 }
 
 // ------------------------------------------------------------------------------------------------

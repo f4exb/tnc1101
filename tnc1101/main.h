@@ -11,6 +11,8 @@
 
 typedef enum tnc_mode_e {
     TNC_KISS = 0,
+    TNC_BULK_TX,
+    TNC_BULK_RX,
     TNC_TEST_USB_ECHO,
     TNC_RADIO_STATUS,
     TNC_RADIO_INIT,
@@ -66,6 +68,7 @@ extern uint8_t nb_preamble_bytes[];
 typedef struct arguments_s {
     uint8_t            verbose_level;        // Verbose level
     uint8_t            print_long_help;      // Print a long help and exit
+    char               *bulk_filename;       // File name for bulk transfer
     // --- serial link TNC ---
     char               *usbacm_device;       // USB ttyACMx device (real) 
     char               *serial_device;       // TNC serial device (virtual)
@@ -90,7 +93,7 @@ typedef struct arguments_s {
     uint8_t            fec;                  // Activate FEC
     uint8_t            whitening;            // Activate whitening
     preamble_t         preamble;             // Preamblescheme (number of preamble bytes)
-    uint32_t           packet_delay;         // Delay before sending packet on serial or radio in 4 2-FSK symbols approximately
+    uint32_t           packet_delay;         // Delay before sending packet on serial or radio in microseconds
     uint32_t           tnc_serial_window;    // Time window in microseconds for concatenating serial frames (0: no concatenation)
     uint32_t           tnc_radio_window;     // Time window in microseconds for concatenating radio frames (0: no concatenation)
     uint32_t           tnc_keyup_delay;      // TNC keyup delay in microseconds

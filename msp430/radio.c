@@ -485,6 +485,15 @@ uint8_t receive_end()
 }
 
 // ------------------------------------------------------------------------------------------------
+// Cancel a started Rx session. Mainly used to handle timeout conditions.
+void receive_cancel()
+// ------------------------------------------------------------------------------------------------
+{
+    flush_rx_fifo();                  // Flush anything that may be left in the Rx FIFO
+    TI_CC_SPIStrobe(TI_CCxxx0_SIDLE); // put radio back to idle state
+}
+
+// ------------------------------------------------------------------------------------------------
 // Set up for reception
 void receive_setup(uint8_t *dataBlock)
 // ------------------------------------------------------------------------------------------------

@@ -122,7 +122,12 @@ static struct argp_option options[] = {
 // === Static functions declarations ==============================================================
 
 static void delete_args(arguments_t *arguments);
+
 static void file_bulk_transmit(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments);
+
+static void file_bulk_receive(serial_t *serial_parms, 
     msp430_radio_parms_t *radio_parms, 
     arguments_t *arguments);
 
@@ -255,6 +260,48 @@ static void file_bulk_transmit(serial_t *serial_parms,
     else
     {
         fprintf(stderr, "%s transmitted successfully\n", arguments->bulk_filename);
+    }
+
+    if (arguments->bulk_filename, "-") // not stdin
+    {
+        fclose(fp);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Bulk receive to the contents of a file (or stdout, or pipe)
+static void file_bulk_receive(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
+// ------------------------------------------------------------------------------------------------
+{
+    FILE *fp;
+
+    if (arguments->bulk_filename, "-") // not stdin
+    {
+        fp = fopen(arguments->bulk_filename, "w");
+    }
+    else // stdin
+    {
+        fp = stdout;
+    }
+
+    if (bulk_receive(fp, serial_parms, radio_parms, arguments))
+    {
+        fprintf(stderr, "error receiving %s\n", arguments->bulk_filename);
+    }
+    else
+    {
+        fprintf(stderr, "%s received successfully\n", arguments->bulk_filename);
+    }
+
+    if (arguments->bulk_filename, "-") // not stdout
+    {
+        fclose(fp);
+    }
+    else
+    {
+        fflush(fp);
     }
 }
 
@@ -669,6 +716,10 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_BULK_TX)
     {
         file_bulk_transmit(&serial_parms, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_BULK_RX)
+    {
+        file_bulk_receive(&serial_parms, &radio_parms, &arguments);
     }
 
     /*

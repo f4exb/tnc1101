@@ -231,6 +231,7 @@ int radio_packet_receive_test(serial_t *serial_parms,
         size = radio_receive_packet(serial_parms,
                     dataBlock,
                     arguments->packet_length,
+                    0,
                     block_time);
 
         if (size > 0)

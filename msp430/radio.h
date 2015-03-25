@@ -35,6 +35,7 @@ void    receive_setup(uint8_t *dataBlock);
 void    receive_begin();
 void    receive_more();
 uint8_t receive_end();
+void    receive_cancel();
 void    start_rx();
 void    flush_rx_fifo();
 void    flush_tx_fifo();

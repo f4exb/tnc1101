@@ -249,6 +249,18 @@ uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
 
         start_rx();
     }
+    else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_RX_CANCEL)
+    {
+        TI_CC_GDO0_PxIE  &= ~TI_CC_GDO0_PIN; // Interrupt disabled
+        TI_CC_GDO2_PxIE  &= ~TI_CC_GDO2_PIN; // Interrupt disabled
+        TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
+        TI_CC_GDO0_PxIFG &= ~TI_CC_GDO0_PIN; // IFG cleared just in case
+
+        receive_cancel();
+
+        pDataBuffer[1] = 0; // Just send back the command as an ACK
+        send_ack = 1;
+    }
 
     return 0;
 }

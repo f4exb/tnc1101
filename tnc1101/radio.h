@@ -55,6 +55,7 @@ void     print_radio_parms(msp430_radio_parms_t *radio_parms);
 
 void     init_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments);
 int      init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, arguments_t *arguments);
+int      radio_cancel_rx(serial_t *serial_parms);
 void     print_radio_status(serial_t *serial_parms, arguments_t *arguments);
 
 int      radio_send_block(serial_t *serial_parms, 
@@ -85,6 +86,7 @@ int      radio_receive_block(serial_t *serial_parms,
 uint32_t radio_receive_packet(serial_t *serial_parms,
             uint8_t  *packet,
             uint8_t  blockSize,
+            uint32_t init_timeout_us,
             uint32_t inter_block_timeout_us);
 
 /*

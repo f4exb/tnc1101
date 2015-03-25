@@ -467,6 +467,28 @@ int init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, argume
 }
 
 // ------------------------------------------------------------------------------------------------
+// Cancel reception state
+int radio_cancel_rx(serial_t *serial_parms)
+// ------------------------------------------------------------------------------------------------
+{
+    int nbytes;
+
+    dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX_CANCEL;
+    dataBuffer[1] = 0;
+
+    verbprintf(1, "Cancel reception...\n");
+
+    print_block(3, dataBuffer, 2);
+    nbytes = write_serial(serial_parms, dataBuffer, 2);
+    verbprintf(1, "%d bytes written to USB\n", nbytes);
+
+    nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 100000);
+    print_block(3, dataBuffer, nbytes);
+
+    return nbytes;
+}
+
+// ------------------------------------------------------------------------------------------------
 // Print status registers to stderr
 void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
@@ -710,20 +732,22 @@ int radio_receive_block(serial_t *serial_parms,
 
 // ------------------------------------------------------------------------------------------------
 // Receive of a packet
-// packet    is the pointer to the reception area
-// blockSize is the size of the radio block
-// ..timeout is the timoeut in microseconds between successive blocks
-// Returns   actual data size
+// packet                 is the pointer to the reception area
+// blockSize              is the size of the radio block
+// init_timeout_us        is the timeout in microseconds for the first block
+// inter_block_timeout_us is the timoeut in microseconds between successive blocks
+// Returns                actual data size
 uint32_t radio_receive_packet(serial_t *serial_parms,
     uint8_t  *packet,
     uint8_t  blockSize,
+    uint32_t init_timeout_us,
     uint32_t inter_block_timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
     int      nbytes;
     uint8_t  crc_lqi, crc, lqi, rssi, block_countdown, block_count = 0;
     uint32_t packet_size = 0;
-    uint32_t timeout = 0;
+    uint32_t timeout = init_timeout_us;
 
     do
     {

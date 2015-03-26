@@ -1,7 +1,10 @@
 #ifndef _MSP430_INTERFACE_H_
 #define _MSP430_INTERFACE_H_
 
+#include <stdint.h>
+
 #define F_XTAL_MHZ 26
+#define MCLK_MHZ 24
 
 typedef enum msp430_block_type_e
 {

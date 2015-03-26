@@ -217,7 +217,7 @@ uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
     else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
     {
         reset_radio();
-        __delay_cycles(5000);  // ~5ms delay 
+        DELAY_US(5000);  // ~5ms delay 
         init_radio((msp430_radio_parms_t *) &pDataBuffer[2]);
         send_ack = 1;
     }
@@ -470,10 +470,10 @@ void main (void)
 #endif
 
     initPorts();           // Config GPIOS for low-power (output low)
-    initClocks(8000000);   // Config clocks. MCLK=SMCLK=FLL=8MHz; ACLK=REFO=32kHz
+    initClocks(MCLK_MHZ * 1000000);   // Config clocks. MCLK=SMCLK=FLL=8MHz; ACLK=REFO=32kHz
     USB_setup(TRUE, TRUE); // Init USB & events; if a host is present, connect
 
-    __delay_cycles(5000);  // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
+    DELAY_US(5000);        // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
     init_radio_spi();      // Initialize SPI comm with radio module
     init_leds();
 

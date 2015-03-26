@@ -49,7 +49,12 @@
 // Comments: Initial Release Version
 //------------------------------------------------------------------------------
 
-#define UCLK_DIV 0x02 // 8 MHz / 2 = 4 MHz SPI clock
+#ifndef _TI_CC_SPI_H_
+#define _TI_CC_SPI_H_
+
+#include "msp430_interface.h"
+
+#define UCLK_DIV (MCLK_MHZ/4) // ~4 MHz SPI clock
 
 void TI_CC_SPISetup(void);
 void TI_CC_PowerupResetCCxxxx(void);
@@ -61,6 +66,6 @@ char TI_CC_SPIReadStatus(char);
 void TI_CC_SPIStrobe(char);
 void TI_CC_Wait(unsigned int);
 
-
+#endif // _TI_CC_SPI_H_
 
 

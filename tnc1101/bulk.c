@@ -66,15 +66,11 @@ int bulk_transmit(FILE *fp,
     arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t  data_block_size = arguments->packet_length - 2;
-    uint32_t blocks_per_buffer = (arguments->large_packet_length / data_block_size);
-    uint32_t packet_time;
-    uint8_t  *buffer, *xbuffer, *buffer0, *buffer1, *midbuffer;
-    size_t   nbytes, nblocks, rbytes, ib;
-    int      sbytes;
+    uint8_t buffer[1<<16], ackBlock[32];
+    int nbytes, ackbytes = 32, i;
+    uint32_t block_time;
 
-    int      ackbytes = 32;
-    uint8_t  ackBlock[32];
+    block_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
 
     if (!init_radio(serial_parms, radio_parms, arguments))
     {
@@ -86,73 +82,24 @@ int bulk_transmit(FILE *fp,
         usleep(100000);
     }
 
-    buffer = (uint8_t *) malloc(2 * (blocks_per_buffer+1) * data_block_size);
-    
-    midbuffer = buffer + (blocks_per_buffer+1) * data_block_size;
-    xbuffer = buffer;    // store read bytes at this address
-    buffer0 = buffer;    // current buffer
-    buffer1 = midbuffer; // next buffer
-    packet_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
-    
-    while ((nbytes = fread(xbuffer, sizeof(uint8_t), data_block_size * blocks_per_buffer, fp)) > 0)
-    {
-        verbprintf(2, "Read %d bytes from buffer at %x\n", nbytes, xbuffer);
+    memset(buffer, 0, (1<<16));
+    i = 0;
 
-        nblocks = nbytes / data_block_size;
-        rbytes = nbytes % data_block_size;
-        memcpy(buffer1, &buffer0[nblocks], rbytes);
-        xbuffer = buffer1 + rbytes; // next read here
+    while ((nbytes = fread(buffer, sizeof(uint8_t), arguments->large_packet_length, fp)) > 0)
+    //for (i=0; i<arguments->repetition; i++)
+    {
+        verbprintf(2, "Packet #%d size %d\n", i, nbytes); 
 
         radio_send_packet(serial_parms,
-            buffer0,
+            buffer,
             arguments->packet_length,
             nbytes,
             arguments->packet_delay,
-            packet_time);
+            block_time);
 
-        /*
-        for(ib = 0; ib < nblocks; ib++)
-        {
-            // send block
-            sbytes = send_block(serial_parms, 
-                &buffer0[ib*data_block_size],
-                data_block_size, 
-                arguments->packet_length,
-                packet_time);
-
-            if (sbytes <= 0)
-            {
-                verbprintf(1, "Error sending block. Aborting\n");
-                free(buffer);
-                return 1;
-            }
-        }
-        */
-
-        if (buffer1 > buffer0) // swap buffers
-        {
-            buffer1 = buffer;
-            buffer0 = midbuffer;
-        }
-        else
-        {
-            buffer1 = midbuffer;
-            buffer0 = buffer;
-        }
-        
+        i++;
     }
 
-    if (rbytes > 0)
-    {
-        radio_send_packet(serial_parms,
-            buffer1,
-            arguments->packet_length,
-            rbytes,
-            arguments->packet_delay,
-            packet_time);        
-    }
-
-    free(buffer);
     return 0;
 }
 
@@ -201,6 +148,24 @@ int bulk_receive(FILE *fp,
             if (nbytes < 0)
             {
                 verbprintf(1, "Cancel reception failed\n");
+
+                if (!init_radio(serial_parms, radio_parms, arguments))
+                {
+                    fprintf(stderr, "End: cannot initialize radio (1).\n");
+                }
+                else
+                {
+                    usleep(100000);
+                }
+
+                if (!init_radio(serial_parms, radio_parms, arguments))
+                {
+                    fprintf(stderr, "End: cannot initialize radio (2).\n");
+                }
+                else
+                {
+                    usleep(100000);
+                }
             }
 
             break;
@@ -209,24 +174,5 @@ int bulk_receive(FILE *fp,
         timeout = inter_packet_timeout;
     }
 
-    /*
-    if (!init_radio(serial_parms, radio_parms, arguments))
-    {
-        fprintf(stderr, "End: cannot initialize radio (1).\n");
-    }
-    else
-    {
-        usleep(100000);
-    }
-
-    if (!init_radio(serial_parms, radio_parms, arguments))
-    {
-        fprintf(stderr, "End: cannot initialize radio (2).\n");
-    }
-    else
-    {
-        usleep(100000);
-    }
-    */
     return 0;
 }

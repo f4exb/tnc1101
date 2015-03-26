@@ -628,19 +628,25 @@ void radio_send_packet(serial_t *serial_parms,
         uint32_t block_timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
-    int     block_countdown = size / (blockSize - 2);
-    uint8_t *block_start = packet;
-    uint8_t data_length;
+    int     block_countdown, data_length, data_index;
     uint8_t ackBuffer[DATA_BUFFER_SIZE];
     int     nbytes, ackbytes;
 
-    while (block_countdown >= 0)
+    if (size == 0)
+    {
+        return;
+    }
+
+    block_countdown = (size - 1) / (blockSize -2);
+    data_index = 0;
+
+    while (size > 0)
     {
         data_length = (size > blockSize - 2 ? blockSize - 2 : size);
         ackbytes = DATA_BUFFER_SIZE; 
 
         nbytes = radio_send_block(serial_parms, 
-            packet,
+            &packet[data_index],
             data_length + 1, // size takes countdown counter into account
             block_countdown,
             blockSize,
@@ -648,18 +654,19 @@ void radio_send_packet(serial_t *serial_parms,
             &ackbytes,
             block_timeout_us);
 
-        verbprintf(2, "Block (%d,%d): %d bytes sent %d bytes received from radio_send_block\n", 
+        verbprintf(2, "Block (%d,%d): data_index: %d - %d bytes sent %d bytes received from radio_send_block\n", 
             data_length + 1,
             block_countdown, 
+            data_index,
             nbytes, 
             ackbytes); 
         
         if (ackbytes > 0)
         {
             print_block(3, ackBuffer, ackbytes);
-        }        
+        }
 
-        block_start += data_length;
+        data_index += data_length;
         size -= data_length;
         block_countdown--;
 

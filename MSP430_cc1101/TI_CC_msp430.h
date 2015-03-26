@@ -52,6 +52,8 @@
 // Version:  1.00
 // Comments: Initial Release Version
 //******************************************************************************
+#ifndef _TI_CC_MSP430_H_
+#define _TI_CC_MSP430_H_
 
 #include "msp430.h"
 #include "msp430f5529.h"
@@ -197,3 +199,6 @@
 #define TI_CC_SER_INTF_USCIB3  10
 #define TI_CC_SER_INTF_USI     11
 #define TI_CC_SER_INTF_BITBANG 12
+
+#endif // _TI_CC_MSP430_H_
+ 

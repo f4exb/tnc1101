@@ -41,7 +41,8 @@
 //  July 2006
 //  IAR Embedded Workbench v3.41
 //----------------------------------------------------------------------------
-
+#ifndef _TI_CC_CC1100_CC2500_H_
+#define _TI_CC_CC1100_CC2500_H_
 
 // Configuration Registers
 #define TI_CCxxx0_IOCFG2       0x00        // GDO2 output pin configuration
@@ -141,3 +142,5 @@
 // Various constants
 #define TI_CCxxx0_FIFO_SIZE     64         // Rx or Tx FIFO size
 #define TI_CCxxx0_PACKET_SIZE  255         // Packet maximum size
+
+#endif // _TI_CC_CC1100_CC2500_H_

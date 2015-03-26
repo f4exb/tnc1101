@@ -628,16 +628,17 @@ void radio_send_packet(serial_t *serial_parms,
         uint32_t block_timeout_us)
 // ------------------------------------------------------------------------------------------------
 {
-    int     block_countdown, data_length, data_index;
-    uint8_t ackBuffer[DATA_BUFFER_SIZE];
-    int     nbytes, ackbytes;
+    int      data_length, data_index;
+    uint8_t  ackBuffer[DATA_BUFFER_SIZE];
+    int      nbytes, ackbytes;
+    uint32_t block_countdown;
 
     if (size == 0)
     {
         return;
     }
 
-    block_countdown = (size - 1) / (blockSize -2);
+    block_countdown = (size - 1) / (blockSize - 2);
     data_index = 0;
 
     while (size > 0)
@@ -670,7 +671,7 @@ void radio_send_packet(serial_t *serial_parms,
         size -= data_length;
         block_countdown--;
 
-        if (block_delay_us)
+        if (block_delay_us && block_countdown) // inter-block delay
         {
             usleep(block_delay_us); // pause before sending the next block
         }

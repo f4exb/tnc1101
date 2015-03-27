@@ -376,8 +376,6 @@ void get_radio_status(uint8_t *status_regs)
 uint8_t transmit_setup(uint8_t *dataBlock)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t initial_tx_count; // Number of bytes to send in first batch
-
     bytes_remaining = dataBlock[0]; // initial count
     pDataBlock = &dataBlock[1];     // block of data to send
 

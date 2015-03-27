@@ -620,7 +620,7 @@ int radio_send_block(serial_t *serial_parms,
 
 // ------------------------------------------------------------------------------------------------
 // Transmission of a packet
-void radio_send_packet(serial_t *serial_parms,
+uint32_t radio_send_packet(serial_t *serial_parms,
         uint8_t  *packet,
         uint8_t  blockSize,
         uint32_t size,
@@ -635,7 +635,7 @@ void radio_send_packet(serial_t *serial_parms,
 
     if (size == 0)
     {
-        return;
+        return 0;
     }
 
     block_countdown = (size - 1) / (blockSize - 2);
@@ -664,7 +664,21 @@ void radio_send_packet(serial_t *serial_parms,
         
         if (ackbytes > 0)
         {
-            print_block(3, ackBuffer, ackbytes);
+            if (ackBuffer[0] != MSP430_BLOCK_TYPE_TX)
+            {
+                verbprintf(1, "Error returned via USB\n");
+                print_block(1, ackBuffer, ackbytes);
+                break;
+            }
+            else
+            {
+                print_block(3, ackBuffer, ackbytes);
+            }
+        }
+        else
+        {
+            verbprintf(1, "No reply via USB\n");
+            break;
         }
 
         data_index += data_length;
@@ -676,6 +690,8 @@ void radio_send_packet(serial_t *serial_parms,
             usleep(block_delay_us); // pause before sending the next block
         }
     }
+
+    return size;
 }
 
 // ------------------------------------------------------------------------------------------------

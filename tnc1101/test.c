@@ -83,7 +83,7 @@ int radio_packet_transmit_test(serial_t *serial_parms,
     arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint32_t packets_sent, block_time, block_delay;
+    uint32_t packets_sent, block_time, block_delay, bytes_left;
     uint8_t  dataBlock[1<<16];
 
     if (!init_radio(serial_parms, radio_parms, arguments))
@@ -112,15 +112,23 @@ int radio_packet_transmit_test(serial_t *serial_parms,
     {
         verbprintf(1, "Packet #%d\n", packets_sent);
 
-        radio_send_packet(serial_parms,
+        bytes_left = radio_send_packet(serial_parms,
             dataBlock,
             arguments->packet_length,
             arguments->large_packet_length,
             block_delay,
             block_time);
 
+        if (bytes_left)
+        {
+            verbprintf(1, "Error in packet transmission. Aborting...\n");
+            break;
+        }
+
         packets_sent++;
     }
+
+    verbprintf(1, "Done.\n");
 }
 
 // ------------------------------------------------------------------------------------------------

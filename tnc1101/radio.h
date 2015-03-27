@@ -67,7 +67,7 @@ int      radio_send_block(serial_t *serial_parms,
             int      *ackBlockSize, 
             uint32_t timeout_us);
 
-void     radio_send_packet(serial_t *serial_parms,
+uint32_t radio_send_packet(serial_t *serial_parms,
             uint8_t  *packet,
             uint8_t  dataBlockSize,
             uint32_t size,

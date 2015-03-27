@@ -15,47 +15,8 @@
 
 // === Static functions declarations ==============================================================
 
-static int send_block(serial_t *serial_parms,
-    uint8_t  *buffer,
-    uint8_t  data_size,
-    uint8_t  block_size,
-    uint32_t timeout_us);
-
 // === Static functions ===========================================================================
 
-// ------------------------------------------------------------------------------------------------
-// Send a block of data over the radio link
-int send_block(serial_t *serial_parms,
-    uint8_t  *buffer,
-    uint8_t  data_size,
-    uint8_t  block_size,
-    uint32_t timeout_us)
-// ------------------------------------------------------------------------------------------------
-{
-    int      nbytes, ackbytes = 32;
-    uint8_t  ackBlock[32];
-
-    // send block
-    nbytes = radio_send_block(serial_parms, 
-        buffer,
-        data_size + 1, // + block countdown
-        0, // block countdown of zero for a single block packet
-        block_size,    // radio (fixed) block size
-        ackBlock, 
-        &ackbytes, 
-        timeout_us); // 10's of microseconds. 10 times provision.
-
-    verbprintf(2, "%d bytes sent %d bytes received from radio_send_block\n", 
-        nbytes, 
-        ackbytes); 
-    
-    if (ackbytes > 0)
-    {
-        print_block(2, ackBlock, ackbytes);
-    }      
-
-    return ackbytes;          
-}
 // === Public functions ===========================================================================
 
 // ------------------------------------------------------------------------------------------------
@@ -66,9 +27,9 @@ int bulk_transmit(FILE *fp,
     arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t buffer[1<<16], ackBlock[32];
+    uint8_t buffer0[1<<16], buffer[1<<16], ackBlock[32];
     int nbytes, ackbytes = 32, i;
-    uint32_t block_time;
+    uint32_t block_time, bytes_left;
 
     block_time = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
 
@@ -82,20 +43,27 @@ int bulk_transmit(FILE *fp,
         usleep(100000);
     }
 
-    memset(buffer, 0, (1<<16));
+    memset(buffer, 0xAA, (1<<16));
     i = 0;
 
-    while ((nbytes = fread(buffer, sizeof(uint8_t), arguments->large_packet_length, fp)) > 0)
+    while ((nbytes = fread(buffer0, sizeof(uint8_t), arguments->large_packet_length, fp)) > 0)
+    //nbytes = arguments->large_packet_length;
     //for (i=0; i<arguments->repetition; i++)
     {
-        verbprintf(2, "Packet #%d size %d\n", i, nbytes); 
+        verbprintf(2, "Packet #%d size %d\n", i, nbytes);
 
-        radio_send_packet(serial_parms,
+        bytes_left = radio_send_packet(serial_parms,
             buffer,
             arguments->packet_length,
             nbytes,
             arguments->packet_delay,
             block_time);
+
+        if (bytes_left)
+        {
+            verbprintf(1, "Error in bulk transmission\n");
+            return 1;
+        }
 
         i++;
     }

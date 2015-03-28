@@ -36,7 +36,8 @@ char *tnc_mode_names[] = {
     "Radio block echo test starting with Tx",
     "Radio block echo test starting with Rx",
     "Radio packet transmission test",
-    "Radio packet reception test"
+    "Radio packet reception test",
+    "Radio packet reception test in non-blocking mode"
 };
 
 char *modulation_names[] = {
@@ -712,6 +713,10 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_TEST_RX_PACKET)
     {
         radio_packet_receive_test(&serial_parms, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_RX_PACKET_NON_BLOCKING)
+    {
+        radio_packet_receive_nb_test(&serial_parms, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_BULK_TX)
     {

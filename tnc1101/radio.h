@@ -74,6 +74,8 @@ uint32_t radio_send_packet(serial_t *serial_parms,
             uint32_t block_delay_us,
             uint32_t block_timeout_us);
 
+int      radio_turn_on_rx(serial_t *serial_parms, uint8_t  dataBlockSize);
+
 int      radio_receive_block(serial_t *serial_parms, 
             uint8_t  *dataBlock,
             uint8_t  dataBlockSize,
@@ -83,7 +85,21 @@ int      radio_receive_block(serial_t *serial_parms,
             uint8_t  *crc_lqi,
             uint32_t timeout_us);
 
+int      radio_receive_block_nb(serial_t *serial_parms,
+            uint8_t  *dataBlock,
+            uint8_t  *blockCountdown,
+            uint32_t *size,
+            uint8_t  *rssi,
+            uint8_t  *crc_lqi,
+            uint32_t timeout_us);
+
 uint32_t radio_receive_packet(serial_t *serial_parms,
+            uint8_t  *packet,
+            uint8_t  blockSize,
+            uint32_t init_timeout_us,
+            uint32_t inter_block_timeout_us);
+
+int      radio_receive_packet_nb(serial_t *serial_parms,
             uint8_t  *packet,
             uint8_t  blockSize,
             uint32_t init_timeout_us,

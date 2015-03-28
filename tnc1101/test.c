@@ -213,7 +213,6 @@ int radio_packet_receive_test(serial_t *serial_parms,
     uint8_t  dataBlock[1<<16];
     char     displayBlock[1<<8];
     uint8_t  rssi, lqi, crc, crc_lqi, block_countdown;
-    int      nbytes;
 
     if (!init_radio(serial_parms, radio_parms, arguments))
     {
@@ -246,6 +245,85 @@ int radio_packet_receive_test(serial_t *serial_parms,
         {
             strncpy(displayBlock, dataBlock, 255);
             verbprintf(1, ">%s\n", displayBlock);
+        }
+
+        packets_received++;
+    }
+
+    return 0;    
+}
+
+// ------------------------------------------------------------------------------------------------
+// Reception test with (large >255 bytes) packets and in non-blocking mode
+int radio_packet_receive_nb_test(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
+// ------------------------------------------------------------------------------------------------
+{
+    uint32_t packets_received, block_time, nb_tries;
+    uint8_t  dataBlock[1<<16];
+    char     displayBlock[1<<8];
+    uint8_t  rssi, lqi, crc, crc_lqi, block_countdown;
+    int      nbytes, size;
+
+    if (!init_radio(serial_parms, radio_parms, arguments))
+    {
+        fprintf(stderr, "Cannot initialize radio. Aborting...\n");
+        return 1;
+    }
+    else
+    {
+        usleep(100000);
+    }
+
+    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->packet_delay;
+
+    verbprintf(0, "Receiving %d test packets with radio block size %d\n", 
+        arguments->repetition, 
+        arguments->packet_length);
+
+    while (packets_received < arguments->repetition)
+    {
+        dataBlock[0] = '\0';
+        verbprintf(1, "Packet #%d\n", packets_received);
+
+        nbytes = radio_turn_on_rx(serial_parms, arguments->packet_length);
+        
+        if (nbytes != 2)
+        {
+            verbprintf(1, "Error in starting Rx. Aborting...\n");
+            break;
+        }
+
+        nb_tries = 0;
+
+        do
+        {
+            size = radio_receive_packet_nb(serial_parms,
+                        dataBlock,
+                        arguments->packet_length,
+                        1000,
+                        block_time);
+
+            if (size > 0)
+            {
+                strncpy(displayBlock, dataBlock, 255);
+                verbprintf(1, ">%s\n", displayBlock);
+            }
+
+            usleep(10); // wait ~10us
+            nb_tries++;
+
+        } while (size == 0);
+
+        if (size > 0)
+        {
+            verbprintf(2, "Success after %d attempts\n", nb_tries);
+        }
+        else
+        {
+            verbprintf(2, "Error after %d attempts\n", nb_tries);
+            break; 
         }
 
         packets_received++;

@@ -35,5 +35,9 @@ int radio_packet_receive_test(serial_t *serial_parms,
     msp430_radio_parms_t *radio_parms, 
     arguments_t *arguments);
 
+int radio_packet_receive_nb_test(serial_t *serial_parms, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments);
+
 
 #endif

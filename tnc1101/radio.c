@@ -522,14 +522,17 @@ int radio_cancel_rx(serial_t *serial_parms)
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX_CANCEL;
     dataBuffer[1] = 0;
 
-    verbprintf(1, "Cancel reception...\n");
+    verbprintf(2, "Cancel reception...\n");
 
-    print_block(3, dataBuffer, 2);
     nbytes = write_serial(serial_parms, dataBuffer, 2);
-    verbprintf(1, "%d bytes written to USB\n", nbytes);
+    verbprintf(2, "%d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 100000);
-    print_block(3, dataBuffer, nbytes);
+
+    if (nbytes > 0)
+    {
+        print_block(3, dataBuffer, nbytes);
+    }
 
     return nbytes;
 }
@@ -758,6 +761,13 @@ int radio_turn_on_rx(serial_t *serial_parms,
 
     nbytes = write_serial(serial_parms, dataBuffer, 2);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
+
+    //nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 100000);
+
+    if (nbytes > 0)
+    {
+        print_block(3, dataBuffer, nbytes);
+    }
 
     return nbytes;
 }

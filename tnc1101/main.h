@@ -70,11 +70,14 @@ typedef struct arguments_s {
     uint8_t            verbose_level;        // Verbose level
     uint8_t            print_long_help;      // Print a long help and exit
     char               *bulk_filename;       // File name for bulk transfer
+    // --- USB link TNC ---
+    char               *usbacm_device;       // TNC USB ttyACMx device (real) 
+    speed_t            usb_speed;            // TNC USB serial speed (physical, Baud)
+    uint32_t           usb_speed_n;          // TNC USB serial speed as a number (physical)
     // --- serial link TNC ---
-    char               *usbacm_device;       // USB ttyACMx device (real) 
-    char               *serial_device;       // TNC serial device (virtual)
-    speed_t            serial_speed;         // TNC serial speed (physical, Baud)
-    uint32_t           serial_speed_n;       // TNC serial speed as a number (physical)
+    char               *serial_device;       // Virtual TNC AX.25 serial device (virtual)
+    speed_t            serial_speed;         // Virtual TNC AX.25 serial speed (physical, Baud)
+    uint32_t           serial_speed_n;       // Virtual TNC AX.25 serial speed as a number (physical)
     // --- spi link radio ---
     char               *spi_device;          // CC1101 SPI device
     uint8_t            print_radio_status;   // Print radio status and exit

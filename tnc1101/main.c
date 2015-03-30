@@ -21,7 +21,7 @@
 #include "msp430_interface.h"
 
 arguments_t          arguments;
-serial_t             serial_parms;
+serial_t             serial_parms_usb, serial_parms_ax25;
 msp430_radio_parms_t radio_parms;
 
 char *tnc_mode_names[] = {
@@ -139,7 +139,8 @@ static void file_bulk_receive(serial_t *serial_parms,
 static void terminate(const int signal_) {
 // ------------------------------------------------------------------------------------------------
     printf("PICC: Terminating with signal %d\n", signal_);
-    close_serial(&serial_parms);
+    close_serial(&serial_parms_usb);
+    close_serial(&serial_parms_ax25);
     delete_args(&arguments);
     exit(1);
 }
@@ -668,7 +669,8 @@ int main (int argc, char **argv)
         arguments.bulk_filename = strdup("-");
     }
 
-    set_serial_parameters(&serial_parms, arguments.usbacm_device, get_serial_speed(115200, &arguments.serial_speed_n));
+    set_serial_parameters(&serial_parms_ax25, arguments.serial_device, get_serial_speed(arguments.serial_speed, &arguments.serial_speed_n));
+    set_serial_parameters(&serial_parms_usb,  arguments.usbacm_device, get_serial_speed(115200, &arguments.usb_speed_n));
     init_radio_parms(&radio_parms, &arguments);
 
     if (arguments.verbose_level > 0)
@@ -678,53 +680,58 @@ int main (int argc, char **argv)
         fprintf(stderr, "\n");
     }
 
-    if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
+    if (arguments.tnc_mode == TNC_KISS)
     {
-        usb_test_echo(&serial_parms, &arguments);
+        kiss_init(&arguments);
+        kiss_run(&serial_parms_ax25, &serial_parms_usb, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
+    {
+        usb_test_echo(&serial_parms_usb, &arguments);
     }
     else if (arguments.tnc_mode == TNC_RADIO_STATUS) 
     {
-        print_radio_status(&serial_parms, &arguments);
+        print_radio_status(&serial_parms_usb, &arguments);
     }
     else if (arguments.tnc_mode == TNC_RADIO_INIT)
     {
-        init_radio(&serial_parms, &radio_parms, &arguments);
+        init_radio(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_TEST_TX)
     {
-        radio_transmit_test(&serial_parms, &radio_parms, &arguments);
+        radio_transmit_test(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_TEST_RX)
     {
-        radio_receive_test(&serial_parms, &radio_parms, &arguments);
+        radio_receive_test(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_TEST_ECHO_TX)
     {
-        radio_echo_test(&serial_parms, &radio_parms, &arguments, 1);
+        radio_echo_test(&serial_parms_usb, &radio_parms, &arguments, 1);
     } 
     else if (arguments.tnc_mode == TNC_TEST_ECHO_RX)
     {
-        radio_echo_test(&serial_parms, &radio_parms, &arguments, 0);
+        radio_echo_test(&serial_parms_usb, &radio_parms, &arguments, 0);
     }
     else if (arguments.tnc_mode == TNC_TEST_TX_PACKET)
     {
-        radio_packet_transmit_test(&serial_parms, &radio_parms, &arguments);
+        radio_packet_transmit_test(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_TEST_RX_PACKET)
     {
-        radio_packet_receive_test(&serial_parms, &radio_parms, &arguments);
+        radio_packet_receive_test(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_TEST_RX_PACKET_NON_BLOCKING)
     {
-        radio_packet_receive_nb_test(&serial_parms, &radio_parms, &arguments);
+        radio_packet_receive_nb_test(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_BULK_TX)
     {
-        file_bulk_transmit(&serial_parms, &radio_parms, &arguments);
+        file_bulk_transmit(&serial_parms_usb, &radio_parms, &arguments);
     }
     else if (arguments.tnc_mode == TNC_BULK_RX)
     {
-        file_bulk_receive(&serial_parms, &radio_parms, &arguments);
+        file_bulk_receive(&serial_parms_usb, &radio_parms, &arguments);
     }
 
     /*
@@ -774,7 +781,8 @@ int main (int argc, char **argv)
     }
     */
 
-    close_serial(&serial_parms);
+    close_serial(&serial_parms_usb);
+    close_serial(&serial_parms_ax25);
     delete_args(&arguments);
     return 0;
 }

@@ -59,6 +59,47 @@ uint8_t *kiss_tok(uint8_t *block, uint8_t *end)
     return p_ret;
 }
 
+// ------------------------------------------------------------------------------------------------
+// Check if the KISS block is a command block and interpret the command 
+// Returns 1 if this is a command block
+// Returns 0 it this is a data block
+uint8_t kiss_command(uint8_t *block)
+// ------------------------------------------------------------------------------------------------
+{
+    uint8_t command_code = block[1] & 0x0F;
+    uint8_t kiss_port = (block[1] & 0xF0)>>4;
+    uint8_t command_arg = block[2];
+
+    verbprintf(4, "KISS: command %02X %02X\n", block[1], block[2]);
+
+    switch (command_code)
+    {
+        case 0: // data block
+            return 0;
+        case 1: // TXDELAY
+            tnc_tx_keyup_delay = command_arg * 10000; // these are tenths of ms
+            break;
+        case 2: // Persistence parameter
+            kiss_persistence = (command_arg + 1) / 256.0;
+            break;
+        case 3: // Slot time
+            kiss_slot_time = command_arg * 10000; // these are tenths of ms
+            break;
+        case 4: // Tx tail
+            kiss_tx_tail = command_arg * 10000; // these are tenths of ms
+            break;
+        case 15:
+            verbprintf(1, "KISS: received aborting command\n");
+            abort();
+            break;
+        default:
+            break;
+    }
+
+    verbprintf(1, "KISS: command received for port %d: (%d,%d)\n", kiss_port, command_code, command_arg);
+    return 1;
+}
+
 // === Public functions ===========================================================================
 
 // ------------------------------------------------------------------------------------------------
@@ -140,46 +181,125 @@ void kiss_unpack(uint8_t *kiss_block, uint8_t *packed_block, size_t *size)
 }
 
 // ------------------------------------------------------------------------------------------------
-// Check if the KISS block is a command block and interpret the command 
-// Returns 1 if this is a command block
-// Returns 0 it this is a data block
-uint8_t kiss_command(uint8_t *block)
+// Run the KISS virtual TNC
+void kiss_run(serial_t *serial_parms_ax25, 
+    serial_t *serial_parms_usb, 
+    msp430_radio_parms_t *radio_parms, 
+    arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t command_code = block[1] & 0x0F;
-    uint8_t kiss_port = (block[1] & 0xF0)>>4;
-    uint8_t command_arg = block[2];
+    static const size_t bufsize = (1<<16);
+    uint8_t  rx_buffer[1<<16], tx_buffer[1<<16];
+    uint8_t  rtx_toggle; // 1:Tx, 0:Rx
+    uint8_t  rx_trigger, tx_trigger, force_mode;  
+    int      rx_count, tx_count, byte_count, nbytes;
+    uint32_t timeout_value, bytes_left, block_time, block_delay;
+    uint64_t timestamp;
+    struct timeval tp;  
 
-    verbprintf(4, "KISS: command %02X %02X\n", block[1], block[2]);
+    memset(rx_buffer, 0, bufsize);
+    memset(tx_buffer, 0, bufsize);
 
-    switch (command_code)
+    force_mode = 1;
+    rtx_toggle = 0;
+    rx_trigger = 0;
+    tx_trigger = 0;
+    rx_count = 0;
+    tx_count = 0;
+
+    block_time  = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
+    block_delay = arguments->packet_delay;    
+
+    if (!init_radio(serial_parms_usb, radio_parms, arguments))
     {
-        case 0: // data block
-            return 0;
-        case 1: // TXDELAY
-            tnc_tx_keyup_delay = command_arg * 10000; // these are tenths of ms
-            break;
-        case 2: // Persistence parameter
-            kiss_persistence = (command_arg + 1) / 256.0;
-            break;
-        case 3: // Slot time
-            kiss_slot_time = command_arg * 10000; // these are tenths of ms
-            break;
-        case 4: // Tx tail
-            kiss_tx_tail = command_arg * 10000; // these are tenths of ms
-            break;
-        case 15:
-            verbprintf(1, "KISS: received aborting command\n");
-            abort();
-            break;
-        default:
-            break;
+        verbprintf(1, "Cannot initialize radio. Aborting...\n");
+        return;
+    }
+    else
+    {
+        usleep(100000);
     }
 
-    verbprintf(1, "KISS: command received for port %d: (%d,%d)\n", kiss_port, command_code, command_arg);
-    return 1;
+    radio_turn_on_rx(serial_parms_usb, arguments->packet_length);
+
+    verbprintf(1, "Starting...\n");
+
+    while (1)
+    {
+        byte_count = read_serial(serial_parms_ax25, &tx_buffer[tx_count], bufsize - tx_count);
+
+        if (byte_count > 0)
+        {
+            tx_count += byte_count;  // Accumulate Tx
+
+            gettimeofday(&tp, NULL);
+            timestamp = tp.tv_sec * 1000000ULL + tp.tv_usec;
+            timeout_value = arguments->tnc_serial_window;
+            force_mode = (timeout_value == 0);
+
+            if (!rtx_toggle) // Rx to Tx transition
+            {
+                rx_trigger = 1;
+            }
+            else
+            {
+                rx_trigger = 0;
+            }
+
+            rtx_toggle = 1;
+        }
+
+        if ((tx_count > 0) && ((tx_trigger) || (force_mode))) // Send bytes received on serial to air 
+        {
+            print_block(4, tx_buffer, tx_count); // debug
+
+            nbytes = radio_cancel_rx(serial_parms_usb);
+            
+            if (nbytes < 0)
+            {
+                verbprintf(1, "Cancel Rx failed. Aborting...\n");
+                return;
+            }
+
+            verbprintf(2, "%d bytes to send\n", tx_count);
+
+            if (tnc_tx_keyup_delay)
+            {
+                usleep(tnc_tx_keyup_delay);
+            }
+
+            bytes_left = radio_send_packet(serial_parms_usb,
+                tx_buffer,
+                arguments->packet_length,
+                tx_count,
+                block_delay,
+                block_time);
+
+            if (bytes_left)
+            {
+                verbprintf(1, "Error in packet transmission. Aborting...\n");
+                return;
+            }
+
+            tx_count = 0;
+            tx_trigger = 0;                        
+        }
+
+        if (!force_mode)
+        {
+            gettimeofday(&tp, NULL);
+
+            if ((tp.tv_sec * 1000000ULL + tp.tv_usec) > timestamp + timeout_value)
+            {
+                force_mode = 1;
+            }                        
+        }
+
+        usleep(10);
+    }
 }
 
+/*
 // ------------------------------------------------------------------------------------------------
 // Run the KISS virtual TNC
 void kiss_run(serial_t *serial_parms, spi_parms_t *spi_parms, arguments_t *arguments)
@@ -313,3 +433,4 @@ void kiss_run(serial_t *serial_parms, spi_parms_t *spi_parms, arguments_t *argum
         radio_wait_a_bit(4);
     }
 }
+*/

@@ -78,8 +78,7 @@ typedef struct arguments_s {
     char               *serial_device;       // Virtual TNC AX.25 serial device (virtual)
     speed_t            serial_speed;         // Virtual TNC AX.25 serial speed (physical, Baud)
     uint32_t           serial_speed_n;       // Virtual TNC AX.25 serial speed as a number (physical)
-    // --- spi link radio ---
-    char               *spi_device;          // CC1101 SPI device
+    // --- radio parameters ---
     uint8_t            print_radio_status;   // Print radio status and exit
     radio_modulation_t modulation;     // Radio modulation scheme
     rate_t             rate;                 // Data rate (Baud)

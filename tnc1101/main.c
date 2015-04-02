@@ -26,6 +26,7 @@ msp430_radio_parms_t radio_parms;
 char *tnc_mode_names[] = {
     "File bulk transmission",
     "File bulk reception",
+    "Reserved",
     "USB echo",
     "Radio status",
     "Radio init",
@@ -89,7 +90,6 @@ static struct argp_option options[] = {
     {"verbose",  'v', "VERBOSITY_LEVEL", 0, "Verbosiity level: 0 quiet else verbose level (default : quiet)"},
     {"long-help",  'H', 0, 0, "Print a long help and exit"},
     {"real-time",  'T', 0, 0, "Engage so called \"real time\" scheduling (defalut 0: no)"},
-    {"spi-device",  'd', "SPI_DEVICE", 0, "SPI device, (default : /dev/spidev0.0)"},
     {"modulation",  'M', "MODULATION_SCHEME", 0, "Radio modulation scheme, See long help (-H) option"},
     {"rate",  'R', "DATA_RATE_INDEX", 0, "Data rate index, See long help (-H) option"},
     {"rate-skew",  'w', "RATE_MULTIPLIER", 0, "Data rate skew multiplier. (default 1.0 = no skew)"},
@@ -190,7 +190,6 @@ static void init_args(arguments_t *arguments)
     arguments->bulk_filename = 0;
     arguments->serial_speed = B38400;
     arguments->serial_speed_n = 38400;
-    arguments->spi_device = 0;
     arguments->print_radio_status = 0;
     arguments->modulation = RADIO_MOD_FSK2;
     arguments->rate = RATE_9600;
@@ -225,9 +224,9 @@ void delete_args(arguments_t *arguments)
     {
         free(arguments->serial_device);
     }
-    if (arguments->spi_device)
+    if (arguments->usbacm_device)
     {
-        free(arguments->spi_device);
+        free(arguments->usbacm_device);
     }
     if (arguments->test_phrase)
     {
@@ -326,7 +325,6 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Preamble size .......: %d bytes\n", nb_preamble_bytes[arguments->preamble]);
     fprintf(stderr, "FEC .................: %s\n", (arguments->fec ? "on" : "off"));
     fprintf(stderr, "Whitening ...........: %s\n", (arguments->whitening ? "on" : "off"));
-    fprintf(stderr, "SPI device ..........: %s\n", arguments->spi_device);
     fprintf(stderr, "TNC mode ............: %s\n", tnc_mode_names[arguments->tnc_mode]);
     fprintf(stderr, "--- test ---\n");
     fprintf(stderr, "Test phrase .........: %s\n", arguments->test_phrase);
@@ -539,10 +537,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
             else
                 arguments->serial_speed = get_serial_speed(i32, &(arguments->serial_speed_n));
             break;
-        // SPI device
-        case 'd':
-            arguments->spi_device = strdup(arg);
-            break;
         // Transmission test phrase
         case 'y':
             arguments->test_phrase = strdup(arg);
@@ -657,11 +651,6 @@ int main (int argc, char **argv)
         arguments.serial_device = strdup("/var/ax25/axp2");
     }
     
-    if (!arguments.spi_device)
-    {
-        arguments.spi_device = strdup("/dev/spidev0.0");
-    }
-
     if (!arguments.bulk_filename)
     {
         arguments.bulk_filename = strdup("-");
@@ -731,53 +720,6 @@ int main (int argc, char **argv)
     {
         file_bulk_receive(&serial_parms_usb, &radio_parms, &arguments);
     }
-
-    /*
-    init_radio_parms(&radio_parameters, &arguments);
-    ret = init_radio(&radio_parameters, &spi_parameters, &arguments);
-
-    if (ret != 0)
-    {
-        fprintf(stderr, "PICC: Cannot initialize radio link, RC=%d\n", ret);
-        delete_args(&arguments);
-        return ret;
-    }
-
-    if (arguments.print_radio_status)
-    {
-        fprintf(stderr, "\n--- Radio state ---\n");
-        print_radio_status(&spi_parameters);
-    }
-    else if (arguments.test_mode == TEST_TX_SIMPLE)
-    {
-        radio_transmit_test(&spi_parameters, &arguments);
-    }
-    else if (arguments.test_mode == TEST_TX_INTERRUPT)
-    {
-        radio_transmit_test_int(&spi_parameters, &arguments);
-    }
-    else if (arguments.test_mode == TEST_RX_SIMPLE)
-    {
-        radio_receive_test(&spi_parameters, &arguments);
-    }
-    else if (arguments.test_mode == TEST_RX_INTERRUPT)
-    {
-        radio_receive_test_int(&spi_parameters, &arguments);
-    }
-    else if (arguments.test_mode == TEST_TX_ECHO)
-    {
-        radio_test_echo(&spi_parameters, &radio_parameters, &arguments, 1);
-    }
-    else if (arguments.test_mode == TEST_RX_ECHO)
-    {
-        radio_test_echo(&spi_parameters, &radio_parameters, &arguments, 0);
-    }
-    else
-    {
-        kiss_init(&arguments);
-        kiss_run(&serial_parameters, &spi_parameters, &arguments);    
-    }
-    */
 
     close_serial(&serial_parms_usb);
     close_serial(&serial_parms_ax25);

@@ -190,7 +190,7 @@ void kiss_run(serial_t *serial_parms_ax25,
 {
     static const size_t bufsize = (1<<16);
     uint8_t  rx_buffer[1<<16], tx_buffer[1<<16];
-    uint8_t  rtx_toggle; // 1:Tx, 0:Rx
+    uint8_t  rtx_tristate; // 0: no Rx/Tx operation, 1:Rx, 2:Tx
     uint8_t  rx_trigger, tx_trigger, force_mode;
     int      rx_count, tx_count, byte_count, nbytes;
     uint32_t timeout_value, bytes_left, block_time, block_delay;
@@ -200,19 +200,19 @@ void kiss_run(serial_t *serial_parms_ax25,
     memset(rx_buffer, 0, bufsize);
     memset(tx_buffer, 0, bufsize);
 
-    force_mode = 1;
-    rtx_toggle = 0;
-    rx_trigger = 0;
-    tx_trigger = 0;
-    rx_count = 0;
-    tx_count = 0;
+    force_mode   = 0;
+    rtx_tristate = 0;
+    rx_trigger   = 0;
+    tx_trigger   = 0;
+    rx_count     = 0;
+    tx_count     = 0;
 
     block_time  = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
     block_delay = arguments->packet_delay;
 
     if (!init_radio(serial_parms_usb, radio_parms, arguments))
     {
-        verbprintf(1, "Cannot initialize radio. Aborting...\n");
+        verbprintf(1, "KISS run: cannot initialize radio. Aborting...\n");
         return;
     }
     else
@@ -222,7 +222,7 @@ void kiss_run(serial_t *serial_parms_ax25,
 
     radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for packet to receive
 
-    verbprintf(1, "Starting...\n");
+    verbprintf(1, "KISS run: starting...\n");
 
     while (1)
     {
@@ -243,7 +243,7 @@ void kiss_run(serial_t *serial_parms_ax25,
             timeout_value = arguments->tnc_radio_window;
             force_mode = (timeout_value == 0);
 
-            if (rtx_toggle) // Tx to Rx transition
+            if (rtx_tristate == 2) // Tx to Rx transition
             {
                 tx_trigger = 1; // Push Tx
             }
@@ -252,13 +252,12 @@ void kiss_run(serial_t *serial_parms_ax25,
                 tx_trigger = 0;
             }
 
-            //radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
-            rtx_toggle = 0;
+            rtx_tristate = 1;
         }
         else if (byte_count < 0) // Error
         {
             radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
-            rtx_toggle = 0;
+            rtx_tristate = 0;
         }
 
         // Rx on AX.25 serial link
@@ -274,7 +273,7 @@ void kiss_run(serial_t *serial_parms_ax25,
             timeout_value = arguments->tnc_serial_window;
             force_mode = (timeout_value == 0);
 
-            if (!rtx_toggle) // Rx to Tx transition
+            if (rtx_tristate == 1) // Rx to Tx transition
             {
                 rx_trigger = 1;
             }
@@ -283,23 +282,21 @@ void kiss_run(serial_t *serial_parms_ax25,
                 rx_trigger = 0;
             }
 
-            rtx_toggle = 1;
+            rtx_tristate = 2;
         }
 
         // Send bytes received from CC1101 radio link via USB on AX.25 serial
 
         if ((rx_count > 0) && ((rx_trigger) || (force_mode))) // Send bytes received on air to serial
         {
-            //radio_wait_free();            // Make sure no radio operation is in progress
-            //radio_turn_idle(spi_parms);   // Inhibit radio operations
-            verbprintf(2, "Received %d bytes from radio\n", rx_count);
+            verbprintf(2, "KISS send AX.25: received %d bytes from radio\n", rx_count);
             nbytes = write_serial(serial_parms_ax25, rx_buffer, rx_count);
-            verbprintf(2, "Sent %d bytes on AX.25 serial\n", nbytes);
-            //radio_init_rx(spi_parms, arguments); // Init for new packet to receive Rx
-            //radio_turn_rx(spi_parms);            // Put back into Rx
+            verbprintf(2, "KISS send AX.25: sent %d bytes on AX.25 serial\n", nbytes);
             memset(rx_buffer, 0, (1<<12)); // DEBUG
             rx_count = 0;
             rx_trigger = 0;
+            force_mode = 0;
+            rtx_tristate = 0;
 
             radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
         }
@@ -314,13 +311,13 @@ void kiss_run(serial_t *serial_parms_ax25,
 
             if (nbytes < 0)
             {
-                verbprintf(1, "Cancel Rx failed. Aborting...\n");
+                verbprintf(1, "KISS send USB: cancel Rx failed. Aborting...\n");
                 return;
             }
 
             if (!kiss_command(tx_buffer))
             {
-                verbprintf(2, "%d bytes to send to radio\n", tx_count);
+                verbprintf(2, "KISS send USB: %d bytes to send to radio\n", tx_count);
 
                 if (tnc_tx_keyup_delay)
                 {
@@ -336,7 +333,7 @@ void kiss_run(serial_t *serial_parms_ax25,
 
                 if (bytes_left)
                 {
-                    verbprintf(1, "Error in packet transmission. Aborting...\n");
+                    verbprintf(1, "KISS send USB: error in packet transmission. Aborting...\n");
                     return;
                 }
             }
@@ -344,19 +341,28 @@ void kiss_run(serial_t *serial_parms_ax25,
             memset(tx_buffer, 0, (1<<12)); // DEBUG
             tx_count = 0;
             tx_trigger = 0;
+            force_mode = 0;
+            rtx_tristate = 0;
 
             radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
         }
 
         // Time window processing
 
-        if (!force_mode)
+        if (rtx_tristate && !force_mode)
         {
             gettimeofday(&tp, NULL);
 
             if ((tp.tv_sec * 1000000ULL + tp.tv_usec) > timestamp + timeout_value)
             {
                 force_mode = 1;
+            }
+            else
+            {
+                if (rtx_tristate == 1) // Rx going on
+                {
+                    radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
+                }
             }
         }
 

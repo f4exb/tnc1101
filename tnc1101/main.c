@@ -26,7 +26,7 @@ msp430_radio_parms_t radio_parms;
 char *tnc_mode_names[] = {
     "File bulk transmission",
     "File bulk reception",
-    "Reserved",
+    "KISS TNC",
     "USB echo",
     "Radio status",
     "Radio init",
@@ -667,7 +667,12 @@ int main (int argc, char **argv)
         fprintf(stderr, "\n");
     }
 
-    if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
+    if (arguments.tnc_mode == TNC_KISS)
+    {
+        kiss_init(&arguments);
+        kiss_run(&serial_parms_ax25, &serial_parms_usb, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
     {
         usb_test_echo(&serial_parms_usb, &arguments);
     }

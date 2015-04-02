@@ -211,7 +211,7 @@ int radio_packet_receive_test(serial_t *serial_parms,
 {
     uint32_t packets_received, size, block_time;
     uint8_t  dataBlock[1<<16];
-    char     displayBlock[1<<8];
+    char     displayBlock[1<<16];
     uint8_t  rssi, lqi, crc, crc_lqi, block_countdown;
 
     if (!init_radio(serial_parms, radio_parms, arguments))
@@ -243,7 +243,7 @@ int radio_packet_receive_test(serial_t *serial_parms,
 
         if (size > 0)
         {
-            strncpy(displayBlock, dataBlock, 255);
+            strncpy(displayBlock, dataBlock, (1<<16)-1);
             verbprintf(1, ">%s\n", displayBlock);
         }
 
@@ -262,7 +262,7 @@ int radio_packet_receive_nb_test(serial_t *serial_parms,
 {
     uint32_t packets_received, block_time, nb_tries;
     uint8_t  dataBlock[1<<16];
-    char     displayBlock[1<<8];
+    char     displayBlock[1<<16];
     uint8_t  rssi, lqi, crc, crc_lqi, block_countdown;
     int      nbytes, size;
 
@@ -307,7 +307,7 @@ int radio_packet_receive_nb_test(serial_t *serial_parms,
 
             if (size > 0)
             {
-                strncpy(displayBlock, dataBlock, 255);
+                strncpy(displayBlock, dataBlock, (1<<16)-1);
                 verbprintf(1, ">%s\n", displayBlock);
             }
 

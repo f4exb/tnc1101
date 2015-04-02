@@ -27,7 +27,7 @@ int bulk_transmit(FILE *fp,
     arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
-    uint8_t buffer0[1<<16], buffer[1<<16], ackBlock[32];
+    uint8_t buffer[1<<16], ackBlock[32];
     int nbytes, ackbytes = 32, i;
     uint32_t block_time, bytes_left;
 
@@ -46,7 +46,7 @@ int bulk_transmit(FILE *fp,
     memset(buffer, 0, (1<<16));
     i = 0;
 
-    while ((nbytes = fread(buffer0, sizeof(uint8_t), arguments->large_packet_length, fp)) > 0)
+    while ((nbytes = fread(buffer, sizeof(uint8_t), arguments->large_packet_length, fp)) > 0)
     //nbytes = arguments->large_packet_length;
     //for (i=0; i<arguments->repetition; i++)
     {

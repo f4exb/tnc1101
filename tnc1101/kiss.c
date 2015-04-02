@@ -318,24 +318,27 @@ void kiss_run(serial_t *serial_parms_ax25,
                 return;
             }
 
-            verbprintf(2, "%d bytes to send to radio\n", tx_count);
-
-            if (tnc_tx_keyup_delay)
+            if (!kiss_command(tx_buffer))
             {
-                usleep(tnc_tx_keyup_delay);
-            }
+                verbprintf(2, "%d bytes to send to radio\n", tx_count);
 
-            bytes_left = radio_send_packet(serial_parms_usb,
-                tx_buffer,
-                arguments->packet_length,
-                tx_count,
-                block_delay,
-                block_time);
+                if (tnc_tx_keyup_delay)
+                {
+                    usleep(tnc_tx_keyup_delay);
+                }
 
-            if (bytes_left)
-            {
-                verbprintf(1, "Error in packet transmission. Aborting...\n");
-                return;
+                bytes_left = radio_send_packet(serial_parms_usb,
+                    tx_buffer,
+                    arguments->packet_length,
+                    tx_count,
+                    block_delay,
+                    block_time);
+
+                if (bytes_left)
+                {
+                    verbprintf(1, "Error in packet transmission. Aborting...\n");
+                    return;
+                }
             }
 
             memset(tx_buffer, 0, (1<<12)); // DEBUG

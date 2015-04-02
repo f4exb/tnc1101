@@ -17,7 +17,6 @@
 #include "util.h"
 #include "serial.h"
 #include "radio.h"
-#include "kiss.h"
 #include "msp430_interface.h"
 
 arguments_t          arguments;
@@ -25,7 +24,6 @@ serial_t             serial_parms_usb, serial_parms_ax25;
 msp430_radio_parms_t radio_parms;
 
 char *tnc_mode_names[] = {
-    "KISS TNC",
     "File bulk transmission",
     "File bulk reception",
     "USB echo",
@@ -104,7 +102,7 @@ static struct argp_option options[] = {
     {"packet-length",  'p', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
     {"large-packet-length",  'P', "LARGE_PACKET_LENGTH", 0, "Large packet length (>255 bytes) for packet test only (default: 480)"},
     {"variable-length",  'V', 0, 0, "Variable packet length. Given packet length becomes maximum length (default off)"},
-    {"tnc-mode",  't', "TNC_MODE", 0, "TNC mode of operation, See long help (-H) option fpr details (default : 0 KISS)"},
+    {"tnc-mode",  't', "TNC_MODE", 0, "TNC mode of operation, See long help (-H) option fpr details (default : 0)"},
     {"test-phrase",  'y', "TEST_PHRASE", 0, "Set a test phrase to be used in test (default : \"Hello, World!\")"},
     {"repetition",  'n', "REPETITION", 0, "Repetiton factor wherever appropriate, see long Help (-H) option (default : 1 single)"},
     {"radio-status",  's', 0, 0, "Print radio status and exit"},
@@ -113,7 +111,7 @@ static struct argp_option options[] = {
     {"tnc-serial-speed",  'B', "SERIAL_SPEED", 0, "TNC Serial speed in Bauds (default : 9600)"},
     {"tnc-serial-window",  300, "TX_WINDOW_US", 0, "TNC time window in microseconds for concatenating serial frames. 0: no concatenation (default: 40ms))"},
     {"tnc-radio-window",  301, "RX_WINDOW_US", 0, "TNC time window in microseconds for concatenating radio frames. 0: no concatenation (default: 0))"},
-    {"tnc-keyup-delay",  302, "KEYUP_DELAY_US", 0, "TNC keyup delay in microseconds (default: 10ms). In KISS mode it can be changed live via kissparms."},
+    {"tnc-keyup-delay",  302, "KEYUP_DELAY_US", 0, "TNC keyup delay in microseconds (default: 10ms)."},
     {"tnc-keydown-delay",  303, "KEYDOWN_DELAY_US", 0, "FUTUR USE: TNC keydown delay in microseconds (default: 0 inactive)"},
     {"tnc-switchover-delay",  304, "SWITCHOVER_DELAY_US", 0, "FUTUR USE: TNC switchover delay in microseconds (default: 0 inactive)"},
     {"bulk-file",  310, "FILE_NAME", 0, "File name to send or receive with bulk transmission (default: '-' stdin or stdout"},
@@ -204,7 +202,7 @@ static void init_args(arguments_t *arguments)
     arguments->packet_length = 250;
     arguments->large_packet_length = 480;
     arguments->variable_length = 0;
-    arguments->tnc_mode = TNC_KISS;
+    arguments->tnc_mode = TNC_BULK_TX;
     arguments->test_phrase = strdup("Hello, World!");
     arguments->repetition = 1;
     arguments->fec = 0;
@@ -374,7 +372,7 @@ static tnc_mode_t get_tnc_mode(uint8_t tnc_mode_index)
     }
     else
     {
-        return TNC_KISS;
+        return TNC_BULK_TX;
     }
 }
 
@@ -561,31 +559,31 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         case 'w':
             arguments->rate_skew = atof(arg);
             break;
-        // KISS TNC serial link window
+        // TNC serial link window
         case 300:
             arguments->tnc_serial_window = strtol(arg, &end, 10);
             if (*end)
                 argp_usage(state);
             break; 
-        // KISS TNC radio link window
+        // TNC radio link window
         case 301:
             arguments->tnc_radio_window = strtol(arg, &end, 10);
             if (*end)
                 argp_usage(state);
             break; 
-        // KISS TNC keyup delay
+        // TNC keyup delay
         case 302:
             arguments->tnc_keyup_delay = strtol(arg, &end, 10);
             if (*end)
                 argp_usage(state);
             break; 
-        // KISS TNC keydown delay
+        // TNC keydown delay
         case 303:
             arguments->tnc_keydown_delay = strtol(arg, &end, 10);
             if (*end)
                 argp_usage(state);
             break; 
-        // KISS TNC switchover delay 
+        // TNC switchover delay 
         case 304:
             arguments->tnc_switchover_delay = strtol(arg, &end, 10);
             if (*end)
@@ -680,12 +678,7 @@ int main (int argc, char **argv)
         fprintf(stderr, "\n");
     }
 
-    if (arguments.tnc_mode == TNC_KISS)
-    {
-        kiss_init(&arguments);
-        kiss_run(&serial_parms_ax25, &serial_parms_usb, &radio_parms, &arguments);
-    }
-    else if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
+    if (arguments.tnc_mode == TNC_TEST_USB_ECHO) // This one does not need any access to the radio
     {
         usb_test_echo(&serial_parms_usb, &arguments);
     }

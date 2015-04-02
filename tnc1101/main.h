@@ -10,9 +10,9 @@
 #define ALLOW_REAL_TIME  1
 
 typedef enum tnc_mode_e {
-    TNC_KISS = 0,
-    TNC_BULK_TX,
+    TNC_BULK_TX = 0,
     TNC_BULK_RX,
+    TNC_KISS,
     TNC_TEST_USB_ECHO,
     TNC_RADIO_STATUS,
     TNC_RADIO_INIT,

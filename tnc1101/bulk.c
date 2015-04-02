@@ -43,7 +43,7 @@ int bulk_transmit(FILE *fp,
         usleep(100000);
     }
 
-    memset(buffer, 0xAA, (1<<16));
+    memset(buffer, 0, (1<<16));
     i = 0;
 
     while ((nbytes = fread(buffer0, sizeof(uint8_t), arguments->large_packet_length, fp)) > 0)

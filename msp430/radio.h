@@ -19,6 +19,9 @@
 #define TX_FIFO_REFILL 60 // With the default FIFO thresholds selected this is the number of bytes to refill the Tx FIFO
 #define RX_FIFO_UNLOAD 59 // With the default FIFO thresholds selected this is the number of bytes to unload from the Rx FIFO
 #define RTX_THR_NORM   14 // Tx FIFO: 5 - Rx FIFO: 60
+//#define TX_FIFO_REFILL 56 // With the default FIFO thresholds selected this is the number of bytes to refill the Tx FIFO
+//#define RX_FIFO_UNLOAD 55 // With the default FIFO thresholds selected this is the number of bytes to unload from the Rx FIFO
+//#define RTX_THR_NORM   13 // Tx FIFO: 9 - Rx FIFO: 56
 #define RX_THR_START   0  // Rx FIFO: 4 This is to make sure counter byte has been received
 
 #define RADIO_BUFSIZE  (TI_CCxxx0_PACKET_SIZE+2)
@@ -32,7 +35,6 @@ uint8_t transmit_more();
 void    start_tx();
 uint8_t transmit_end();
 void    receive_setup(uint8_t *dataBlock);
-void    receive_begin();
 void    receive_more();
 uint8_t receive_end();
 void    receive_cancel();

@@ -612,7 +612,7 @@ static struct argp argp = {options, parse_opt, args_doc, doc};
 int main (int argc, char **argv)
 // ------------------------------------------------------------------------------------------------
 {
-    int i;
+    int i, nbytes;
 
     // unsolicited termination handling
     struct sigaction sa;
@@ -696,6 +696,11 @@ int main (int argc, char **argv)
     else if (arguments.tnc_mode == TNC_RADIO_INIT)
     {
         init_radio(&serial_parms_usb, &radio_parms, &arguments);
+
+        if (nbytes < 0)
+        {
+            fprintf(stderr, "Error\n");
+        }
     }
     else if (arguments.tnc_mode == TNC_TEST_TX)
     {

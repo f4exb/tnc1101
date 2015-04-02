@@ -67,12 +67,14 @@ volatile uint8_t bCDCDataReceived_event = FALSE;  // Flag set by event handler t
                                                // indicate data has been 
                                                // received into USB buffer
 
-#define BUFFER_SIZE 260                // Command + size + data (size + block countdown + data + RSSI + LQI)
-                                       //       1 +    1         ------------------------- 256 +    1 +   1 
-char    dataBuffer[BUFFER_SIZE];       // Current I/O buffer
+#define BUFFER_SIZE 262                // Command + USB size + size + data (size + block countdown + data + RSSI + LQI)
+                                       //       1 +        1 +    1         ------------------------- 256 +    1 +   1  + 1 
+uint8_t dataBuffer[BUFFER_SIZE];       // Current I/O buffer
 char    outString[65];                 // Holds outgoing strings to be sent
-uint8_t send_ack = 0;                  // Set when an ack is to be sent
-uint8_t rtx_toggle = 0;                // 0: Rx - 1: Tx
+static  uint8_t send_ack = 0;          // Set when an ack is to be sent
+static  uint8_t rtx_toggle = 0;        // 0: Rx - 1: Tx
+static  uint8_t dataIndex = 0;         // Current index in I/O buffer
+static  uint8_t *returnedDataBuffer;   // pointer to data buffer returned via USB
 
 uint8_t gdo0_r, gdo0_f, gdo2_r, gdo2_f;
 
@@ -194,6 +196,10 @@ uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
     uint8_t byte_count = pDataBuffer[1];
     char str_byte[4];
 
+    __disable_interrupt();
+
+    returnedDataBuffer = pDataBuffer;
+
     if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_ECHO_TEST)
     {
         strcpy(outString, "xxEcho Command - Byte count: ");
@@ -241,7 +247,7 @@ uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
     {
         rtx_toggle = 0;
         set_green_led(0);
-        receive_setup(&pDataBuffer[1]);
+        receive_setup(&pDataBuffer[2]);
         init_gdo0_int();
         TI_CC_GDO2_PxIFG &= ~TI_CC_GDO2_PIN; // IFG cleared just in case
         TI_CC_GDO2_PxIE  |=  TI_CC_GDO2_PIN; // Interrupt enabled
@@ -261,6 +267,8 @@ uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
         pDataBuffer[1] = 0; // Just send back the command as an ACK
         send_ack = 1;
     }
+
+    __enable_interrupt();  // Enable interrupts globally
 
     return 0;
 }
@@ -350,6 +358,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                     dataBuffer[8]  = TI_CC_GDO0_PxIFG;
                     dataBuffer[9]  = TI_CC_GDO0_PxIE;
                     dataBuffer[10] = TI_CC_GDO0_PxIES;
+                    returnedDataBuffer = dataBuffer;
                     send_ack = 1;
                     TI_CC_GDO0_PxIE &= ~TI_CC_GDO0_PIN;   // Interrupt disabled
                 }
@@ -373,8 +382,11 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
 
                     if (status == 0) 
                     {
-                        dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX;
-                        dataBuffer[1] += 2; // + RSSI + LQI
+                        // dataBuffer[1] has 0x01 (size of USB block to start Rx)
+                        // so bump returned USB header by 1 byte
+                        dataBuffer[1] = (uint8_t) MSP430_BLOCK_TYPE_RX;
+                        dataBuffer[2] += 2; // + RSSI + LQI
+                        returnedDataBuffer = &dataBuffer[1];
                     }
                     else // RX FIFO OVERFLOW or not empty => problem
                     {
@@ -390,6 +402,7 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                         dataBuffer[9]  = TI_CC_GDO0_PxIE;
                         dataBuffer[10] = TI_CC_GDO0_PxIES;
                         flush_rx_fifo();
+                        returnedDataBuffer = dataBuffer;
                     }
 
                     send_ack = 1;
@@ -530,15 +543,23 @@ void main (void)
                     // below because of an error
                     bCDCDataReceived_event = FALSE;
 
-                    count = cdcReceiveDataInBuffer((uint8_t*) dataBuffer, BUFFER_SIZE, CDC0_INTFNUM);
+                    count = cdcReceiveDataInBuffer((uint8_t*) &dataBuffer[dataIndex], BUFFER_SIZE, CDC0_INTFNUM);
 
                     if (count >= 2)
                     {
-                        retVal = process_usb_block(count, (uint8_t*) dataBuffer);
-
-                        if (retVal)
+                        if (dataIndex + count < dataBuffer[1] + 2)
                         {
-                            break;
+                            dataIndex += count;
+                        }
+                        else
+                        {
+                            retVal = process_usb_block(count, (uint8_t*) dataBuffer);
+                            dataIndex = 0;
+
+                            if (retVal)
+                            {
+                                break;
+                            }
                         }
                         /*
                         byte_command = dataBuffer[0];
@@ -565,21 +586,21 @@ void main (void)
 
                 if (send_ack)
                 {
-                    if (dataBuffer[0] == 0) // it's a bug!
+                    if (returnedDataBuffer[0] == 0) // it's a bug!
                     {
-                        dataBuffer[1]  = 9;
-                        dataBuffer[2]  = rtx_toggle;
-                        dataBuffer[3]  = gdo0_r;
-                        dataBuffer[4]  = gdo0_f;
-                        dataBuffer[5]  = gdo2_r;
-                        dataBuffer[6]  = gdo2_f;
-                        dataBuffer[7]  = TI_CC_GDO0_PxIN;
-                        dataBuffer[8]  = TI_CC_GDO0_PxIFG;
-                        dataBuffer[9]  = TI_CC_GDO0_PxIE;
-                        dataBuffer[10] = TI_CC_GDO0_PxIES;
+                        returnedDataBuffer[1]  = 9;
+                        returnedDataBuffer[2]  = rtx_toggle;
+                        returnedDataBuffer[3]  = gdo0_r;
+                        returnedDataBuffer[4]  = gdo0_f;
+                        returnedDataBuffer[5]  = gdo2_r;
+                        returnedDataBuffer[6]  = gdo2_f;
+                        returnedDataBuffer[7]  = TI_CC_GDO0_PxIN;
+                        returnedDataBuffer[8]  = TI_CC_GDO0_PxIFG;
+                        returnedDataBuffer[9]  = TI_CC_GDO0_PxIE;
+                        returnedDataBuffer[10] = TI_CC_GDO0_PxIES;
                     }
 
-                    retVal = cdcSendDataInBackground((uint8_t *) dataBuffer, dataBuffer[1] + 2, CDC0_INTFNUM, 1);
+                    retVal = cdcSendDataInBackground((uint8_t *) returnedDataBuffer, returnedDataBuffer[1] + 2, CDC0_INTFNUM, 1);
                     send_ack = 0;
                 }
 

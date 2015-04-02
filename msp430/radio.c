@@ -10,10 +10,9 @@
 #include "radio.h"
 #include "TI_CC_CC1100-CC2500.h"
 
-uint8_t bytes_remaining;
-uint8_t bytes_processed;
-uint8_t fixed_packet_length;
-uint8_t *pDataBlock;
+static uint8_t bytes_remaining;
+static uint8_t bytes_processed;
+static uint8_t *pDataBlock;
 
 // ------------------------------------------------------------------------------------------------
 // Initialize SPI radio interface
@@ -378,6 +377,7 @@ uint8_t transmit_setup(uint8_t *dataBlock)
 {
     bytes_remaining = dataBlock[0]; // initial count
     pDataBlock = &dataBlock[1];     // block of data to send
+    //pDataBlock = xDataBlock;
 
     TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, bytes_remaining); // Packet length.
     TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x02); // GDO2 output pin config TX mode
@@ -430,27 +430,16 @@ uint8_t transmit_end()
 }
 
 // ------------------------------------------------------------------------------------------------
-// Called on GDO02 first threshold rising edge. At this time the counter has just been received
-// Set up counter and change threshold back to normal
-void receive_begin()
+// Set up for reception
+void receive_setup(uint8_t *dataBlock)
 // ------------------------------------------------------------------------------------------------
 {
-    pDataBlock[0] = TI_CC_SPIReadReg(TI_CCxxx0_RXFIFO);
-
-    if (fixed_packet_length)
-    {
-        bytes_remaining = fixed_packet_length;
-    }
-    else
-    {
-        bytes_remaining = pDataBlock[0];
-        TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, bytes_remaining+2); // correct packet length
-    }
-
-    bytes_remaining += 2; // + RSSI + LQI
-    bytes_processed = 1;
-
-    TI_CC_SPIWriteReg(TI_CCxxx0_FIFOTHR, RTX_THR_NORM); // FIFO normal threshold.
+    bytes_remaining = dataBlock[0] + 2; // + RSSI + LQI
+    bytes_processed = 0;
+    pDataBlock = &dataBlock[1];
+    flush_rx_fifo();                  // Flush anything that may be left in the Rx FIFO
+    TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, dataBlock[0]);
+    TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x00); // GDO2 output pin config RX mode
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -489,18 +478,6 @@ void receive_cancel()
 {
     flush_rx_fifo();                  // Flush anything that may be left in the Rx FIFO
     TI_CC_SPIStrobe(TI_CCxxx0_SIDLE); // put radio back to idle state
-}
-
-// ------------------------------------------------------------------------------------------------
-// Set up for reception
-void receive_setup(uint8_t *dataBlock)
-// ------------------------------------------------------------------------------------------------
-{
-    bytes_remaining = dataBlock[0] + 2; // + RSSI + LQI
-    bytes_processed = 0;
-    pDataBlock = &dataBlock[1];
-    TI_CC_SPIWriteReg(TI_CCxxx0_PKTLEN, dataBlock[0]);
-    TI_CC_SPIWriteReg(TI_CCxxx0_IOCFG2, 0x00); // GDO2 output pin config RX mode
 }
 
 // ------------------------------------------------------------------------------------------------

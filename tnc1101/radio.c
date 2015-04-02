@@ -507,7 +507,10 @@ int init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, argume
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
-    print_block(3, dataBuffer, nbytes);
+    if (nbytes > 0)
+    {
+        print_block(3, dataBuffer, nbytes);
+    }
 
     return nbytes;
 }
@@ -649,11 +652,14 @@ int radio_send_block(serial_t *serial_parms,
 {
     int nbytes, ackbytes;
 
+    memset(dataBuffer, 0, blockSize+2);
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_TX;
     dataBuffer[1] = blockSize;
     dataBuffer[2] = dataSize;
     dataBuffer[3] = blockCountdown;
     memcpy(&dataBuffer[4], dataBlock, blockSize-2);
+
+    print_block(4, dataBuffer, blockSize+2);
 
     nbytes = write_serial(serial_parms, dataBuffer, blockSize+2);
     verbprintf(2, "Block (%d,%d): %d bytes written to USB\n",
@@ -757,9 +763,10 @@ int radio_turn_on_rx(serial_t *serial_parms,
     uint8_t data_size;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX;
-    dataBuffer[1] = dataBlockSize;
+    dataBuffer[1] = 1;
+    dataBuffer[2] = dataBlockSize;
 
-    nbytes = write_serial(serial_parms, dataBuffer, 2);
+    nbytes = write_serial(serial_parms, dataBuffer, 3);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
 
     //nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 100000);
@@ -797,9 +804,10 @@ int radio_receive_block(serial_t *serial_parms,
     uint8_t data_size;
 
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX;
-    dataBuffer[1] = dataBlockSize;
+    dataBuffer[1] = 1;
+    dataBuffer[2] = dataBlockSize;
 
-    nbytes = write_serial(serial_parms, dataBuffer, 2);
+    nbytes = write_serial(serial_parms, dataBuffer, 3);
     verbprintf(2, "%d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, timeout_us/10);

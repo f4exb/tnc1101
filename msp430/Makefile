@@ -93,7 +93,7 @@ $(PROG_NAME): $(SRC_FILES) TI_CC_spi.o radio.o
 TI_CC_spi.o: ../MSP430_cc1101/TI_CC_spi.c ../MSP430_cc1101/TI_CC_spi.h ../MSP430_cc1101/TI_CC_msp430.h ../MSP430_cc1101/TI_CC_hardware_board.h ../MSP430_cc1101/TI_CC_CC1100-CC2500.h
 	$(CC) $(CFLAGS) -I../MSP430_cc1101 -c -o TI_CC_spi.o ../MSP430_cc1101/TI_CC_spi.c
 
-radio.o: radio.c
+radio.o: radio.c radio.h
 	$(CC) $(CFLAGS) -I../MSP430_cc1101 -c -o radio.o radio.c
 
 debug: $(PROG_NAME)

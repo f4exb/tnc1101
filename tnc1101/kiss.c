@@ -220,15 +220,52 @@ void kiss_run(serial_t *serial_parms_ax25,
         usleep(100000);
     }
 
-    radio_turn_on_rx(serial_parms_usb, arguments->packet_length);
+    radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for packet to receive
 
     verbprintf(1, "Starting...\n");
 
     while (1)
     {
+        // Rx on CC1101 via USB
+
+        byte_count = radio_receive_packet_nb(serial_parms_usb,
+            &rx_buffer[rx_count],
+            arguments->packet_length,
+            1000,
+            block_time);
+
+        if (byte_count > 0) // Something received on radio
+        {
+            rx_count += byte_count;  // Accumulate Rx
+
+            gettimeofday(&tp, NULL);
+            timestamp = tp.tv_sec * 1000000ULL + tp.tv_usec;
+            timeout_value = arguments->tnc_radio_window;
+            force_mode = (timeout_value == 0);
+
+            if (rtx_toggle) // Tx to Rx transition
+            {
+                tx_trigger = 1; // Push Tx
+            }
+            else
+            {
+                tx_trigger = 0;
+            }
+
+            //radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
+            rtx_toggle = 0;
+        }
+        else if (byte_count < 0) // Error
+        {
+            radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
+            rtx_toggle = 0;
+        }
+
+        // Rx on AX.25 serial link
+
         byte_count = read_serial(serial_parms_ax25, &tx_buffer[tx_count], bufsize - tx_count);
 
-        if (byte_count > 0)
+        if (byte_count > 0) // something received on AX.25 serial
         {
             tx_count += byte_count;  // Accumulate Tx
 
@@ -249,7 +286,27 @@ void kiss_run(serial_t *serial_parms_ax25,
             rtx_toggle = 1;
         }
 
-        if ((tx_count > 0) && ((tx_trigger) || (force_mode))) // Send bytes received on serial to air 
+        // Send bytes received from CC1101 radio link via USB on AX.25 serial
+
+        if ((rx_count > 0) && ((rx_trigger) || (force_mode))) // Send bytes received on air to serial
+        {
+            //radio_wait_free();            // Make sure no radio operation is in progress
+            //radio_turn_idle(spi_parms);   // Inhibit radio operations
+            verbprintf(2, "Received %d bytes from radio\n", rx_count);
+            nbytes = write_serial(serial_parms_ax25, rx_buffer, rx_count);
+            verbprintf(2, "Sent %d bytes on AX.25 serial\n", nbytes);
+            //radio_init_rx(spi_parms, arguments); // Init for new packet to receive Rx
+            //radio_turn_rx(spi_parms);            // Put back into Rx
+            memset(rx_buffer, 0, (1<<12)); // DEBUG
+            rx_count = 0;
+            rx_trigger = 0;
+
+            radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
+        }
+
+        // Send bytes received on AX.25 serial to CC1101 via USB for on air transmission
+
+        if ((tx_count > 0) && ((tx_trigger) || (force_mode)))
         {
             print_block(4, tx_buffer, tx_count); // debug
 
@@ -261,7 +318,7 @@ void kiss_run(serial_t *serial_parms_ax25,
                 return;
             }
 
-            verbprintf(2, "%d bytes to send\n", tx_count);
+            verbprintf(2, "%d bytes to send to radio\n", tx_count);
 
             if (tnc_tx_keyup_delay)
             {
@@ -281,9 +338,14 @@ void kiss_run(serial_t *serial_parms_ax25,
                 return;
             }
 
+            memset(tx_buffer, 0, (1<<12)); // DEBUG
             tx_count = 0;
             tx_trigger = 0;                        
+
+            radio_turn_on_rx(serial_parms_usb, arguments->packet_length); // init for new packet to receive
         }
+
+        // Time window processing
 
         if (!force_mode)
         {

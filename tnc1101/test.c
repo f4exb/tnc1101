@@ -284,7 +284,7 @@ int radio_packet_receive_nb_test(serial_t *serial_parms,
 
     while (packets_received < arguments->repetition)
     {
-        dataBlock[0] = '\0';
+        memset(dataBlock, 0, (1<<16));
         verbprintf(1, "Packet #%d\n", packets_received);
 
         nbytes = radio_turn_on_rx(serial_parms, arguments->packet_length);

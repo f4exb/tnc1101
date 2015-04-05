@@ -28,6 +28,34 @@ void _verbprintf(int verb_level, const char *fmt, ...)
 }
 
 // -------------------------------------------------------------------------------------------------
+void _verbprintft(int verb_level, const char *fmt, ...)
+// -------------------------------------------------------------------------------------------------
+{
+    char tbuf[20];
+    struct timeval tv;
+    time_t curtime;
+    int flush = 1;
+
+    if (verb_level > verbose_level)
+        return;
+
+    va_list args;
+    va_start(args, fmt);
+
+    {
+        gettimeofday(&tv, NULL);
+        curtime = tv.tv_sec;
+        strftime(tbuf, 20, "%T", localtime(&curtime));
+        fprintf(stderr, "%s.%06d: ", tbuf, tv.tv_usec);
+        vfprintf(stderr, fmt, args);
+        if(flush)
+            fflush(stderr);
+    }
+
+    va_end(args);
+}
+
+// -------------------------------------------------------------------------------------------------
 void _print_block(int verb_level, const uint8_t *pblock, int size)
 // -------------------------------------------------------------------------------------------------
 {

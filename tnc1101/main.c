@@ -94,7 +94,7 @@ static struct argp_option options[] = {
     {"modulation",  'M', "MODULATION_SCHEME", 0, "Radio modulation scheme, See long help (-H) option"},
     {"rate",  'R', "DATA_RATE_INDEX", 0, "Data rate index, See long help (-H) option"},
     {"rate-skew",  'w', "RATE_MULTIPLIER", 0, "Data rate skew multiplier. (default 1.0 = no skew)"},
-    {"block-delay",  'l', "DELAY_UNITS", 0, "Delay between successive radio blocks when transmitting a larger block in microseconds (default: 1000)"},
+    {"block-delay",  'l', "DELAY_UNITS", 0, "Delay between successive radio blocks when transmitting a larger block in microseconds (default: 10000)"},
     {"modulation-index",  'm', "MODULATION_INDEX", 0, "Modulation index (default 0.5)"},
     {"fec",  'F', 0, 0, "Activate FEC (default off)"},
     {"whitening",  'W', 0, 0, "Activate whitening (default off)"},
@@ -195,7 +195,7 @@ static void init_args(arguments_t *arguments)
     arguments->modulation = RADIO_MOD_FSK2;
     arguments->rate = RATE_9600;
     arguments->rate_skew = 1.0;
-    arguments->block_delay = 1000;
+    arguments->block_delay = 10000;
     arguments->modulation_index = 0.5;
     arguments->freq_hz = 433600000;
     arguments->if_freq_hz = 310000;

@@ -56,7 +56,7 @@ int bulk_transmit(FILE *fp,
             buffer,
             arguments->packet_length,
             nbytes,
-            arguments->packet_delay,
+            arguments->block_delay,
             block_time);
 
         if (bytes_left)
@@ -95,7 +95,7 @@ int bulk_receive(FILE *fp,
         usleep(100000);
     }
 
-    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->packet_delay;
+    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->block_delay;
 
     while (1)
     {

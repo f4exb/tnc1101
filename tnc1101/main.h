@@ -13,6 +13,7 @@ typedef enum tnc_mode_e {
     TNC_BULK_TX = 0,
     TNC_BULK_RX,
     TNC_KISS,
+    TNC_SLIP,
     TNC_TEST_USB_ECHO,
     TNC_RADIO_STATUS,
     TNC_RADIO_INIT,
@@ -78,6 +79,7 @@ typedef struct arguments_s {
     char               *serial_device;       // Virtual TNC AX.25 serial device (virtual)
     speed_t            serial_speed;         // Virtual TNC AX.25 serial speed (physical, Baud)
     uint32_t           serial_speed_n;       // Virtual TNC AX.25 serial speed as a number (physical)
+    uint8_t            slip;                 // 1: use a SLIP interface. This effectively de-activates the KISS command parsing.
     // --- radio parameters ---
     uint8_t            print_radio_status;   // Print radio status and exit
     radio_modulation_t modulation;     // Radio modulation scheme
@@ -96,7 +98,7 @@ typedef struct arguments_s {
     uint8_t            fec;                  // Activate FEC
     uint8_t            whitening;            // Activate whitening
     preamble_t         preamble;             // Preamblescheme (number of preamble bytes)
-    uint32_t           packet_delay;         // Delay before sending packet on serial or radio in microseconds
+    uint32_t           block_delay;         // Delay before sending packet on serial or radio in microseconds
     uint32_t           tnc_serial_window;    // Time window in microseconds for concatenating serial frames (0: no concatenation)
     uint32_t           tnc_radio_window;     // Time window in microseconds for concatenating radio frames (0: no concatenation)
     uint32_t           tnc_keyup_delay;      // TNC keyup delay in microseconds

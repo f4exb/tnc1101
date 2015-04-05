@@ -27,6 +27,7 @@ char *tnc_mode_names[] = {
     "File bulk transmission",
     "File bulk reception",
     "KISS TNC",
+    "SLIP TNC",
     "USB echo",
     "Radio status",
     "Radio init",
@@ -93,7 +94,7 @@ static struct argp_option options[] = {
     {"modulation",  'M', "MODULATION_SCHEME", 0, "Radio modulation scheme, See long help (-H) option"},
     {"rate",  'R', "DATA_RATE_INDEX", 0, "Data rate index, See long help (-H) option"},
     {"rate-skew",  'w', "RATE_MULTIPLIER", 0, "Data rate skew multiplier. (default 1.0 = no skew)"},
-    {"packet-delay",  'l', "DELAY_UNITS", 0, "Delay between successive radio blocks when transmitting a larger block. In 2-FSK byte duration units. (default 30)"},
+    {"block-delay",  'l', "DELAY_UNITS", 0, "Delay between successive radio blocks when transmitting a larger block in microseconds (default: 1000)"},
     {"modulation-index",  'm', "MODULATION_INDEX", 0, "Modulation index (default 0.5)"},
     {"fec",  'F', 0, 0, "Activate FEC (default off)"},
     {"whitening",  'W', 0, 0, "Activate whitening (default off)"},
@@ -194,7 +195,7 @@ static void init_args(arguments_t *arguments)
     arguments->modulation = RADIO_MOD_FSK2;
     arguments->rate = RATE_9600;
     arguments->rate_skew = 1.0;
-    arguments->packet_delay = 30;
+    arguments->block_delay = 1000;
     arguments->modulation_index = 0.5;
     arguments->freq_hz = 433600000;
     arguments->if_freq_hz = 310000;
@@ -213,6 +214,7 @@ static void init_args(arguments_t *arguments)
     arguments->tnc_keydown_delay = 0;
     arguments->tnc_switchover_delay = 0;
     arguments->real_time = 0;
+    arguments->slip = 0;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -316,7 +318,7 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Modulation ..........: %s\n", modulation_names[arguments->modulation]);
     fprintf(stderr, "Rate nominal ........: %d Baud\n", rate_values[arguments->rate]);
     fprintf(stderr, "Rate skew ...........: %.2f\n", arguments->rate_skew);
-    fprintf(stderr, "Block delay .........: %.2f ms\n", arguments->packet_delay / 1000.0);
+    fprintf(stderr, "Block delay .........: %.2f ms\n", arguments->block_delay / 1000.0);
     fprintf(stderr, "Modulation index ....: %.2f\n", arguments->modulation_index);
     fprintf(stderr, "Frequency ...........: %d Hz\n", arguments->freq_hz);
     fprintf(stderr, "Packet length .......: %d bytes\n", arguments->packet_length);
@@ -489,7 +491,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
             break; 
         // Packet delay
         case 'l':
-            arguments->packet_delay = strtol(arg, &end, 10);
+            arguments->block_delay = strtol(arg, &end, 10);
             if (*end)
                 argp_usage(state);
             break; 
@@ -669,6 +671,12 @@ int main (int argc, char **argv)
 
     if (arguments.tnc_mode == TNC_KISS)
     {
+        kiss_init(&arguments);
+        kiss_run(&serial_parms_ax25, &serial_parms_usb, &radio_parms, &arguments);
+    }
+    else if (arguments.tnc_mode == TNC_SLIP)
+    {
+        arguments.slip = 1;
         kiss_init(&arguments);
         kiss_run(&serial_parms_ax25, &serial_parms_usb, &radio_parms, &arguments);
     }

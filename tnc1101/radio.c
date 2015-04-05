@@ -403,7 +403,7 @@ void init_radio_int(spi_parms_t *spi_parms, arguments_t *arguments)
     }
 
     verbprintf(1, "Unit delay .............: %d us\n", radio_int_data.wait_us);
-    verbprintf(1, "Packet delay ...........: %d us\n", arguments->packet_delay * radio_int_data.wait_us);
+    verbprintf(1, "Packet delay ...........: %d us\n", arguments->block_delay * radio_int_data.wait_us);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -500,10 +500,8 @@ int init_radio(serial_t *serial_parms, msp430_radio_parms_t *radio_parms, argume
     dataBuffer[1] = sizeof(msp430_radio_parms_t);
     memcpy(&dataBuffer[2], radio_parms, dataBuffer[1]);
 
-    verbprintf(1, "init_radio...\n");
-
     nbytes = write_serial(serial_parms, dataBuffer, dataBuffer[1]+2);
-    verbprintf(1, "%d bytes written to USB\n", nbytes);
+    verbprintft(1, "RADIO: init: %d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
@@ -525,10 +523,8 @@ int radio_cancel_rx(serial_t *serial_parms)
     dataBuffer[0] = (uint8_t) MSP430_BLOCK_TYPE_RX_CANCEL;
     dataBuffer[1] = 0;
 
-    verbprintf(2, "Cancel reception...\n");
-
     nbytes = write_serial(serial_parms, dataBuffer, 2);
-    verbprintf(2, "%d bytes written to USB\n", nbytes);
+    verbprintft(2, "RADIO: cancel Rx: %d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 100000);
 
@@ -554,7 +550,7 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
     fprintf(stderr, "Start...\n");
 
     nbytes = write_serial(serial_parms, dataBuffer, 2);
-    verbprintf(1, "%d bytes written to USB\n", nbytes);
+    verbprintft(1, "RADIO: status: %d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 10000);
 
@@ -662,7 +658,7 @@ int radio_send_block(serial_t *serial_parms,
     print_block(4, dataBuffer, blockSize+2);
 
     nbytes = write_serial(serial_parms, dataBuffer, blockSize+2);
-    verbprintf(2, "Block (%d,%d): %d bytes written to USB\n",
+    verbprintft(2, "RADIO: send block: Block (%d,%d): %d bytes written to USB\n",
         dataBuffer[2],
         dataBuffer[3],
         nbytes);
@@ -710,7 +706,7 @@ uint32_t radio_send_packet(serial_t *serial_parms,
             &ackbytes,
             block_timeout_us);
 
-        verbprintf(2, "Block (%d,%d): data_index: %d - %d bytes sent %d bytes received from radio_send_block\n", 
+        verbprintft(2, "RADIO: send packet: Block (%d,%d): data_index: %d - %d bytes sent %d bytes received from radio_send_block\n", 
             data_length + 1,
             block_countdown, 
             data_index,
@@ -721,7 +717,7 @@ uint32_t radio_send_packet(serial_t *serial_parms,
         {
             if (ackBuffer[0] != MSP430_BLOCK_TYPE_TX)
             {
-                verbprintf(1, "Error returned via USB\n");
+                verbprintft(1, "RADIO: send packet: Error returned via USB\n");
                 print_block(1, ackBuffer, ackbytes);
                 break;
             }
@@ -732,7 +728,7 @@ uint32_t radio_send_packet(serial_t *serial_parms,
         }
         else
         {
-            verbprintf(1, "No reply via USB\n");
+            verbprintft(1, "RADIO: send packet: No reply via USB\n");
             break;
         }
 
@@ -740,7 +736,7 @@ uint32_t radio_send_packet(serial_t *serial_parms,
         size -= data_length;
         block_countdown--;
 
-        if (block_delay_us && block_countdown) // inter-block delay
+        if (block_delay_us && size) // inter-block delay
         {
             usleep(block_delay_us); // pause before sending the next block
         }
@@ -767,7 +763,7 @@ int radio_turn_on_rx(serial_t *serial_parms,
     dataBuffer[2] = dataBlockSize;
 
     nbytes = write_serial(serial_parms, dataBuffer, 3);
-    verbprintf(2, "%d bytes written to USB\n", nbytes);
+    verbprintft(2, "RADIO: turn on Rx: %d bytes written to USB\n", nbytes);
 
     //nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, 100000);
 
@@ -808,10 +804,10 @@ int radio_receive_block(serial_t *serial_parms,
     dataBuffer[2] = dataBlockSize;
 
     nbytes = write_serial(serial_parms, dataBuffer, 3);
-    verbprintf(2, "%d bytes written to USB\n", nbytes);
+    verbprintft(2, "RADIO: receive block: %d bytes written to USB\n", nbytes);
 
     nbytes = read_usb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, timeout_us/10);
-    verbprintf(2, "%d bytes read from USB\n", nbytes);
+    verbprintft(2, "RADIO: receive block: %d bytes read from USB\n", nbytes);
 
     if (nbytes > 0)
     {
@@ -864,10 +860,10 @@ int radio_receive_block_nb(serial_t *serial_parms,
     uint8_t data_size;
 
     nbytes = read_usb_nb(serial_parms, dataBuffer, DATA_BUFFER_SIZE, timeout_us/10); // timeout=1 is non-blocking
-    //verbprintf(2, "%d bytes read from USB\n", nbytes);
 
     if (nbytes > 0)
     {
+        verbprintft(2, "RADIO: receive block nb: %d bytes read from USB\n", nbytes);
         print_block(3, dataBuffer, nbytes);
     }
 
@@ -925,7 +921,7 @@ uint32_t radio_receive_packet(serial_t *serial_parms,
 
         if (nbytes <= 4) // >4 for data to be valid. If not consider it's a timeout.
         {
-            verbprintf(1, "RADIO: timeout trying to read the next block. Aborting packet\n");
+            verbprintft(1, "RADIO: timeout trying to read the next block. Aborting packet\n");
             packet[0] = '\0';
             return 0;
         }
@@ -940,7 +936,7 @@ uint32_t radio_receive_packet(serial_t *serial_parms,
 
         if (block_count != block_countdown)
         {
-            verbprintf(1, "RADIO: block sequence error. Aborting packet\n");
+            verbprintft(1, "RADIO: block sequence error. Aborting packet\n");
             packet[0] = '\0';
             return 0;
         }
@@ -949,14 +945,14 @@ uint32_t radio_receive_packet(serial_t *serial_parms,
 
         if (crc)
         {
-            verbprintf(2, "Block countdown: %d Size so far: %d RSSI: %.1f dBm CRC OK\n",
+            verbprintft(2, "RADIO: Block countdown: %d Size so far: %d RSSI: %.1f dBm CRC OK\n",
                 block_countdown, 
                 packet_size, 
                 rssi_dbm(rssi));
         }
         else
         {
-            verbprintf(1, "RADIO: CRC error, aborting packet\n");
+            verbprintft(1, "RADIO: CRC error, aborting packet\n");
             packet[0] = '\0';
             return 0;
         }
@@ -985,7 +981,7 @@ int radio_receive_packet_nb(serial_t *serial_parms,
     int      nbytes;
     uint8_t  crc_lqi, crc, lqi, rssi, block_countdown, block_count = 0;
     uint32_t packet_size = 0;
-    uint32_t timeout = init_timeout_us;
+    uint32_t rest_of_packet_size;
 
     // first non-blocking read
     nbytes = radio_receive_block_nb(serial_parms, 
@@ -994,202 +990,30 @@ int radio_receive_packet_nb(serial_t *serial_parms,
         &packet_size,
         &rssi,
         &crc_lqi,
-        timeout);
+        init_timeout_us);
 
-    if (nbytes > 4)
+    if (nbytes > 4) // a valid block was received
     {
-        while (1)
+        if (block_countdown > 0) // there are more blocks to follow
         {
-            if (nbytes <= 4) // >4 for data to be valid. If not consider it's a timeout.
+            rest_of_packet_size = radio_receive_packet(serial_parms,
+                &packet[packet_size],
+                blockSize,
+                inter_block_timeout_us,
+                inter_block_timeout_us);
+
+            if (rest_of_packet_size > 0)
             {
-                verbprintf(1, "RADIO: timeout trying to read the next block. Aborting packet\n");
-                packet[0] = '\0';
-                return -1;
-            }
-
-            if (!block_count)
-            {
-                block_count = block_countdown + 1;
-                timeout = inter_block_timeout_us;
-            }
-
-            block_count--;
-
-            if (block_count != block_countdown)
-            {
-                verbprintf(1, "RADIO: block sequence error. Aborting packet\n");
-                packet[0] = '\0';
-                return -1;
-            }
-
-            crc = get_crc_lqi(crc_lqi, &lqi);
-
-            if (crc)
-            {
-                verbprintf(2, "Block countdown: %d Size so far: %d RSSI: %.1f dBm CRC OK\n",
-                    block_countdown, 
-                    packet_size, 
-                    rssi_dbm(rssi));
+                packet_size += rest_of_packet_size;
             }
             else
             {
-                verbprintf(1, "RADIO: CRC error, aborting packet\n");
-                packet[0] = '\0';
+                verbprintft(1, "RADIO: received incomplete packet. Aborting packet\n");
                 return -1;
             }
-
-            if (block_countdown == 0) 
-            {
-                break; // we are done here
-            }
-
-            // next blocking read
-            nbytes = radio_receive_block(serial_parms, 
-                &packet[packet_size],
-                blockSize,
-                &block_countdown,
-                &packet_size,
-                &rssi,
-                &crc_lqi,
-                timeout);
         }
     }
 
     return packet_size;
 }
 
-/*
-// ------------------------------------------------------------------------------------------------
-// Set packet length
-int radio_set_packet_length(spi_parms_t *spi_parms, uint8_t pkt_len)
-// ------------------------------------------------------------------------------------------------
-{
-    return PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_PKTLEN, pkt_len); // Packet length.
-}
-
-// ------------------------------------------------------------------------------------------------
-// Get packet length
-uint8_t radio_get_packet_length(spi_parms_t *spi_parms)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t pkt_len;
-    PI_CC_SPIReadReg(spi_parms, PI_CCxxx0_PKTLEN, &pkt_len); // Packet length.
-    return pkt_len;
-}
-*/
-
-/*
-// ------------------------------------------------------------------------------------------------
-// Wait for approximately an amount of 2-FSK symbols bytes
-void radio_wait_a_bit(uint32_t amount)
-// ------------------------------------------------------------------------------------------------
-{
-    usleep(amount * radio_int_data.wait_us);
-}
-
-// ------------------------------------------------------------------------------------------------
-// Wait for the reception or transmission to finish
-void radio_wait_free()
-// ------------------------------------------------------------------------------------------------
-{
-    while((radio_int_data.packet_receive) || (radio_int_data.packet_send))
-    {
-        radio_wait_a_bit(4);
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// Initialize for Rx mode
-void radio_init_rx(spi_parms_t *spi_parms, arguments_t *arguments)
-// ------------------------------------------------------------------------------------------------
-{
-    blocks_received = radio_int_data.packet_rx_count;
-    radio_int_data.mode = RADIOMODE_RX;
-    radio_int_data.packet_receive = 0;    
-    radio_int_data.threshold_hits = 0;
-    radio_set_packet_length(spi_parms, arguments->packet_length);
-    
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_IOCFG2, 0x00); // GDO2 output pin config RX mode
-}
-
-
-// ------------------------------------------------------------------------------------------------
-// Transmission of a block
-void radio_send_block(spi_parms_t *spi_parms, uint8_t block_countdown)
-// ------------------------------------------------------------------------------------------------
-{
-    uint8_t  initial_tx_count; // Number of bytes to send in first batch
-    int      i, ret;
-
-    radio_int_data.mode = RADIOMODE_TX;
-    radio_int_data.packet_send = 0;
-    radio_int_data.threshold_hits = 0;
-
-    radio_set_packet_length(spi_parms, radio_int_data.tx_count);
-
-    PI_CC_SPIWriteReg(spi_parms, PI_CCxxx0_IOCFG2,   0x02); // GDO2 output pin config TX mode
-
-    // Initial number of bytes to put in FIFO is either the number of bytes to send or the FIFO size whichever is
-    // the smallest. Actual size blocks you need to take size minus one byte.
-    initial_tx_count = (radio_int_data.tx_count > PI_CCxxx0_FIFO_SIZE-1 ? PI_CCxxx0_FIFO_SIZE-1 : radio_int_data.tx_count);
-
-    // Initial fill of TX FIFO
-    PI_CC_SPIWriteBurstReg(spi_parms, PI_CCxxx0_TXFIFO, (uint8_t *) radio_int_data.tx_buf, initial_tx_count);
-    radio_int_data.byte_index = initial_tx_count;
-    radio_int_data.bytes_remaining = radio_int_data.tx_count - initial_tx_count;
-    blocks_sent = radio_int_data.packet_tx_count;
-
-    PI_CC_SPIStrobe(spi_parms, PI_CCxxx0_STX); // Kick-off Tx
-
-    while (blocks_sent == radio_int_data.packet_tx_count)
-    {
-        radio_wait_a_bit(4);
-    }
-
-    verbprintf(1, "Tx: packet #%d:%d\n", radio_int_data.packet_tx_count, block_countdown);
-    print_block(4, (uint8_t *) radio_int_data.tx_buf, radio_int_data.tx_count);
-
-    blocks_sent = radio_int_data.packet_tx_count;
-    verbprintf(2,"Tx: packet length %d, FIFO threshold was hit %d times\n", radio_int_data.tx_count, radio_int_data.threshold_hits);
-}
-
-// ------------------------------------------------------------------------------------------------
-// Transmission of a packet
-void radio_send_packet(spi_parms_t *spi_parms, arguments_t *arguments, uint8_t *packet, uint32_t size)
-// ------------------------------------------------------------------------------------------------
-{
-    int     block_countdown = size / (arguments->packet_length - 2);
-    uint8_t *block_start = packet;
-    uint8_t block_length;
-
-    radio_int_data.tx_count = arguments->packet_length; // same block size for all
-
-    while (block_countdown >= 0)
-    {
-        block_length = (size > arguments->packet_length - 2 ? arguments->packet_length - 2 : size);
-
-        if (arguments->variable_length)
-        {
-            radio_int_data.tx_count = block_length + 2;
-        }
-
-        memset((uint8_t *) radio_int_data.tx_buf, 0, arguments->packet_length);
-        memcpy((uint8_t *) &radio_int_data.tx_buf[2], block_start, block_length);
-        radio_int_data.tx_buf[0] = block_length + 1; // size takes countdown counter into account
-        radio_int_data.tx_buf[1] = (uint8_t) block_countdown; 
-
-        radio_send_block(spi_parms, block_countdown);
-
-        if (block_countdown > 0)
-        {
-            radio_wait_a_bit(arguments->packet_delay);
-        }
-
-        block_start += block_length;
-        size -= block_length;
-        block_countdown--;
-    }
-
-    packets_sent++;
-}
-*/

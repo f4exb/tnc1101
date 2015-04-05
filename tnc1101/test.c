@@ -100,7 +100,7 @@ int radio_packet_transmit_test(serial_t *serial_parms,
     strncpy(dataBlock, arguments->test_phrase, arguments->large_packet_length);
 
     block_time  = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);
-    block_delay = arguments->packet_delay;
+    block_delay = arguments->block_delay;
 
     packets_sent = 0;
 
@@ -224,7 +224,7 @@ int radio_packet_receive_test(serial_t *serial_parms,
         usleep(100000);
     }
 
-    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->packet_delay;
+    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->block_delay;
 
     verbprintf(0, "Receiving %d test packets with radio block size %d\n", 
         arguments->repetition, 
@@ -276,7 +276,7 @@ int radio_packet_receive_nb_test(serial_t *serial_parms,
         usleep(100000);
     }
 
-    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->packet_delay;
+    block_time = (((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2)) + arguments->block_delay;
 
     verbprintf(0, "Receiving %d test packets with radio block size %d\n", 
         arguments->repetition, 
@@ -360,7 +360,7 @@ int radio_echo_test(serial_t *serial_parms,
 
     memset(dataBlock, 0, 255);    
     block_time  = ((uint32_t) radio_get_byte_time(radio_parms)) * (arguments->packet_length + 2);    
-    block_delay = ((uint32_t) radio_get_byte_time(radio_parms)) * arguments->packet_delay;    
+    block_delay = ((uint32_t) radio_get_byte_time(radio_parms)) * arguments->block_delay;
     packets_sent = 0;
     packets_received = 0;
 

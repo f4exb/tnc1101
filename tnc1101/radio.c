@@ -994,6 +994,14 @@ int radio_receive_packet_nb(serial_t *serial_parms,
 
     if (nbytes > 4) // a valid block was received
     {
+        crc = get_crc_lqi(crc_lqi, &lqi);
+
+        if (!crc)
+        {
+            verbprintft(1, "RADIO: CRC error on first block. Aborting packet\n");
+            return -1;
+        }
+
         if (block_countdown > 0) // there are more blocks to follow
         {
             rest_of_packet_size = radio_receive_packet(serial_parms,

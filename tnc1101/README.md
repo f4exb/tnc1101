@@ -44,12 +44,12 @@ This has been tested successfully on a Banana Pi revision 2 with kernel 4.0.0-rc
 
 ## Obtain the code
 Just clone the main tnc1101 repository in a local folder of your choice on the host. Change to the `tnc1101/tnc1101` directory:
-  git clone 
-  cr tnc1101/tnc1101
+  - `git clone https://github.com/f4exb/tnc1101` 
+  - `cd tnc1101/tnc1101`
 
 ## Compilation
 You can compile on the Banana Pi natively as it doesn't take too much time. You are advised to activate the -O3 optimization:
-  CFLAGS=-O3 make -j3
+  - `CFLAGS=-O3 make -j3`
 
 The result is the `tnc1101` executable in the same directory
 
@@ -317,18 +317,18 @@ Value: Scheme:
 #AX.25/KISS operation
 
 The AX.25/KISS protocol is handled natively in Linux. You must have compiled your kernel with AX.25 and KISS support as modules. The following modules have to be loaded:
-  ax25
-  mkiss
+  - `ax25`
+  - `mkiss`
 
 You must have a few packages installed. Make sure they are installed:
-  sudo apt-get install ax25-apps ax25-node ax25-tools libax25 socat
+  - `sudo apt-get install ax25-apps ax25-node ax25-tools libax25 socat`
 
 Normally you would interface the TNC with a physical serial device and cable. However in this case the TNC is made of software (as seen from the host) so we will use virtual serial devices and a virtual serial link. On end of the link will be used by the AX.25/KISS layer and the other end will be used by the virtual TNC software. This virtual link is set-up thanks to the socat utility:
-  sudo socat -d -d pty,link=/var/ax25/axp1,raw,echo=0 pty,link=/var/ax25/axp2,raw,echo=0 &
+  - `sudo socat -d -d pty,link=/var/ax25/axp1,raw,echo=0 pty,link=/var/ax25/axp2,raw,echo=0 &`
 
 This creates two virtual serial devices linked via a virtual serial cable:
-  /var/ax25/axp1
-  /var/ax25/axp2
+  - `/var/ax25/axp1`
+  - `/var/ax25/axp2`
 
 `/var/ax25/axp1` is used by the AX.25/KISS layer and `/var/ax25/axp2` is used by the virtual TNC.
 
@@ -356,55 +356,58 @@ Example:
 </code></pre>
 
 The AX.25/KISS network interface is created with the `kissattach` command and the netmask is specified with `/sbin/ifconfig` command:
-  sudo kissattach /var/ax25/axp1 radio0 10.0.1.7`
-  sudo ifconfig ax0 netmask 255.255.255.0`
+  - `sudo kissattach /var/ax25/axp1 radio0 10.0.1.7`
+  - `sudo ifconfig ax0 netmask 255.255.255.0`
 
 
 To set-up the AX.25/KISS connection you can use the `kissup.sh` script found in the scripts folder. Your user must be sudoer. Example:
-  ./kissup.sh radio0 10.0.1.7 255.255.255.0
+  - `./kissup.sh radio0 10.0.1.7 255.255.255.0`
 
 To bring down the AX.25/KISS connection you can use the `kissdown.sh` script that takes no parameter:
-  ./kissdown.sh
+  - `./kissdown.sh`
 
 #SLIP operation
 
 This is very similar to AX.25/KISS. The main difference for the tnc1101 program is that there are no commands sent to the TNC therefore the byte following the 0xC0 delimiter should not be interpreted. This mode is activated with the -t3 option.
 
 Here we also make use of a virtual serial cable between two virtual serial interfaces created via socat. To make the distinction with AX.25/KISS they are named differently:
-  /var/slip/slip1
-  /var/slip/slip2
+  - `/var/slip/slip1`
+  - `/var/slip/slip2`
 
 You must have the SLIP support compiled as modules in your kernel. The following modules have to be loaded: 
-  slip.ko
-  slhc.ko
+  - `slip.ko`
+  - `slhc.ko`
 
 You must also install slattach found in the net-tools package. This may be already installed as essential tools like `route` or `ifconfig` are part of this package. In any case try the following:
-  sudo apt-get install net-tools
+  - `sudo apt-get install net-tools`
 
 To set-up a SLIP connection you can use the slipup.sh script in the scripts folder. You must be sudoer. It takes the IP address of the host as the first argument and the IP address of the distant host as the second argument. SLIP links both hosts individually in a point to point connection therefore the assumed netmask is 255.255.255.255.
 
 Example:
-  ./slipup.sh 10.0.2.1 10.0.2.2
-  2015/04/09 10:36:50 socat[12561] N PTY is /dev/pts/1
-  2015/04/09 10:36:50 socat[12561] N PTY is /dev/pts/2
-  2015/04/09 10:36:50 socat[12561] N starting data transfer loop with FDs [5,5] and [7,7]
+<pre><code>
+./slipup.sh 10.0.2.1 10.0.2.2
+2015/04/09 10:36:50 socat[12561] N PTY is /dev/pts/1
+2015/04/09 10:36:50 socat[12561] N PTY is /dev/pts/2
+2015/04/09 10:36:50 socat[12561] N starting data transfer loop with FDs [5,5] and [7,7]
 
-  /sbin/ifconfig
-  ...
-  sl0       Link encap:Serial Line IP  
-          inet addr:10.0.2.1  P-t-P:10.0.2.2  Mask:255.255.255.255
-          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:296  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:10 
-          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+/sbin/ifconfig
+...
+sl0       Link encap:Serial Line IP  
+      inet addr:10.0.2.1  P-t-P:10.0.2.2  Mask:255.255.255.255
+      UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:296  Metric:1
+      RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+      TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+      collisions:0 txqueuelen:10 
+      RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+</code></pre>
 
 To undo the SLIP connection set-up you can use the slipdown.sh script in the scripts folder. 
 
 Example:
-  ./slipdown.sh 
-  2015/04/09 10:38:10 socat[12820] N socat_signal(): handling signal 15
-  2015/04/09 10:38:10 socat[12820] W exiting on signal 15
-  2015/04/09 10:38:10 socat[12820] N socat_signal(): finishing signal 15
-  2015/04/09 10:38:10 socat[12820] N exit(143)
-
+<pre><code>
+./slipdown.sh 
+2015/04/09 10:38:10 socat[12820] N socat_signal(): handling signal 15
+2015/04/09 10:38:10 socat[12820] W exiting on signal 15
+2015/04/09 10:38:10 socat[12820] N socat_signal(): finishing signal 15
+2015/04/09 10:38:10 socat[12820] N exit(143)
+</code></pre>

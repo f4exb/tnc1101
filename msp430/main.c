@@ -222,6 +222,8 @@ uint8_t process_usb_block(uint16_t count, uint8_t *pDataBuffer)
     }
     else if (pDataBuffer[0] == (uint8_t) MSP430_BLOCK_TYPE_INIT)
     {
+        set_green_led(0);
+        set_red_led(0);
         reset_radio();
         DELAY_US(5000);  // ~5ms delay 
         init_radio((msp430_radio_parms_t *) &pDataBuffer[2]);

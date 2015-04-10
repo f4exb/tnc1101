@@ -23,7 +23,7 @@ Host...
 |           ^                          |
 +-----------|--------------------------+
             | SPI
-            |                   \|/
+            |                   \\|/
             V                    |
     +-----------------+          |
     | CC1101 module   |----------+
@@ -32,7 +32,7 @@ Host...
 
 #Operating the CC1101 RF interface
 
-For details on the CC1101 module please refer to (TI's documentation)[http://www.ti.com/product/cc1101]
+For details on the CC1101 module please refer to [TI's documentation](http://www.ti.com/product/cc1101)
 
 The global structure of the code is as follows:
   - process I/O with the host via USB in the main infinite loop

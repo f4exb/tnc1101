@@ -41,7 +41,7 @@ It assumes the following architecture is in place:
 |           ^                          |
 +-----------|--------------------------+
             | SPI
-            |                   \|/
+            |                   \\|/
             V                    |
     +-----------------+          |
     | CC1101 module   |----------+

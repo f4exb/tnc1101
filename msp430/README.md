@@ -112,9 +112,61 @@ Compile the compiler for your host architecture:
   - `mkdir build`
   - `cd build`
   - `../tools/configure --prefix=/opt/install/msp430-elf-gcc --target=msp430-elf --enable-languages=c,c++ --disable-itcl --disable-tk --disable-tcl --disable-libgui --disable-gdbtk` (this will install the compiler in /opt/install/msp430-elf-gcc. You may change the --prefix parameter to fit your needs)
-  - `make -j<n>` (where n is the number of logical CPUs + 1. ex: on core i7 this is 9)
+  - `make -j<n>` (where <n> is the number of logical CPUs + 1. ex: on core i7 this is 9)
   - `make install`
 
 Cross-compile (may not work):
   - `export PATH=<path to the bin directory of your cross-compiler>:$PATH`
   - `./tools/configure --host=arm-cortexa7_neonvfpv4-linux-gnueabihf --prefix=/opt/install/armv7/msp430-elf-gcc --target=msp430-elf --enable-languages=c,c++ --disable-itcl --disable-tk --disable-tcl --disable-libgui --disable-gdbtk` (example for Cortex A7)
+
+## Compile the microcode source
+
+You need to set the `REDHAT_GCC` variable in the Makefile to the installation path of the gcc compiler. For example:
+  - `REDHAT_GCC = /opt/install/msp430-elf-gcc`
+
+Then just run make. This produces a `msp430_cc1101.out` file that you will load into the MSP430F5529 Launchpad.
+
+## Build the debugger and loader
+
+Obtain mspdebug by cloning the git repository:
+  - `git clone git://git.code.sf.net/p/mspdebug/code mspdebug`
+
+You will need libusb and libreadline development packages:
+  - `sudo apt-get install libusb-dev libreadline-dev`
+
+Then build and install:
+  - `make -j<n>` (<n> is the number of logical CPUs + 1)
+  - `sudo make install` (or use the `mspdebug` executable in the same directory)
+
+The only working option is to use the tilib driver and this needs a libmsp430.so library in /usr/lib. So you will need one for your host architecture.
+
+## Build and install libmsp430.so
+
+Download the source in the slac460.zip [from this page](http://processors.wiki.ti.com/index.php/MSPDS_Open_Source_Package). Direct link: [slac460.zip](http://www-s.ti.com/sc/techzip/slac460.zip)
+
+Unzip somewhere and cd into the `MSPDebugStack_OS_Package` directory
+
+You need to apply a patch that can be found [here](http://mspdebug.sourceforge.net/tilib.html#patch_460f). You can take the latest which is `slac460h_unix.diff` at the moment. The patch will work with some lines realignment. Use the patch command like this:
+  - `patch -p1 < slac460h_unix.diff`
+
+Install some pre-required packages:
+  - `sudo apt-get install libhidapi-dev libboost-thread-dev libboost-filesystem-dev libboost-date-time-dev libboost-system-dev libusb-1.0-0-dev`
+
+Run make as usual. You should obtain a `libmsp430.so` at the root of the directory. Then just copy it to `/usr/lib`
+  - `sudo cp -v libmsp430.so /usr/lib`
+
+## Upgrade the Launchpad firmware
+
+It might be necessary to upgrade the Launchpad's firmware:
+  - `sudo mspdebug tilib --allow-fw-update`
+
+Note that sudo is important here. It will accept to run without it but the result is a broken Launchpad that does not enumerate as 2047:0013 as it should. It is 2047:0203 instead which is typical of this situation.
+
+To recover you have to run the fw update TWICE as sudo
+  - `sudo mspdebug tilib --allow-fw-update` (it will complain. unplug and replug...)
+  - `sudo mspdebug tilib --allow-fw-update` (now it should work)
+
+## Load the microcode into the MSP430F5529 Launchpad
+
+Load the code:
+  - `sudo mspdebug tilib 'erase' 'load msp430_cc1101.out' 'exit'`

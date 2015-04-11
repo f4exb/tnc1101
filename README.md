@@ -63,9 +63,4 @@ Additional folders:
   - The USB stack and interface to other functionnalities of the MSP430F5529 Launchpad board (SPI, ...) from TI are located in `MSP430_USB_API` folder.
   - The interface with the CC1101 module is located in `MSP430_cc1101`
   - Common files interfacing host and MCU software are located in the `common` folder
-
-
-
-
-
-
+  - The `scripts` directory contains convenience shell scripts to set-up and bring down AX25/KISS or SLIP interfaces

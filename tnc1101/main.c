@@ -168,7 +168,7 @@ static void print_long_help()
 
     for (i=0; i < RADIO_NUM_MOD; i++)
     {
-        fprintf(stderr, "%d\t%s\n", i, modulation_names[i]);
+        fprintf(stderr, "%2d\t%s\n", i, modulation_names[i]);
     }
 
     fprintf(stderr, "\nRate indexes option -R values\n");    
@@ -192,7 +192,7 @@ static void print_long_help()
 
     for (i=0; i<NUM_TNC; i++)
     {
-        fprintf(stderr, "%d\t%s\n", i, tnc_mode_names[i]);
+        fprintf(stderr, "%2d\t%s\n", i, tnc_mode_names[i]);
     }
 
     fprintf(stderr, "\nRepetition factor option -n values\n");    

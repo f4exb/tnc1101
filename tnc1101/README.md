@@ -290,7 +290,7 @@ It ranges from 0 to 4:
 Be aware that printing out to console takes time and might cause problems when transfer speeds and interactivity increase.
 
 ### Radio interface speeds (-R)
- <pre><code>
+<pre><code>
 Value: Rate (Baud):
  0     50 (experimental)
  1     110 (experimental)
@@ -312,49 +312,47 @@ Value: Rate (Baud):
 </code></pre>
 
 ### Modulations (-M)
- <pre><code>
+<pre><code>
 Value: Scheme:
-0      OOK
-1      2-FSK
-2      4-FSK
-3      MSK
-4      GFSK
+ 0     OOK
+ 1     2-FSK
+ 2     4-FSK
+ 3     MSK
+ 4     GFSK
 </code></pre>
 
 Note: MSK does not seem to work too well at least with the default radio options.
 
 ### Output power (-d)
-
- <pre><code>
-Output power option -d values
+<pre><code>
 Value:  Power (dBm):
- 0  -30
- 1  -20
- 2  -15
- 3  -10
- 4    0
- 5    5
- 6    7
- 7   10
+ 0      -30
+ 1      -20
+ 2      -15
+ 3      -10
+ 4        0
+ 5        5
+ 6        7
+ 7       10
 </code></pre>
 
 ### TNC mode (-t)
- <pre><code>
+<pre><code>
 Value: Scheme:
-0	File bulk transmission
-1	File bulk reception
-2	KISS TNC
-3	SLIP TNC
-4	USB echo
-5	Radio status
-6	Radio init
-7	Radio block transmission test
-8	Radio block reception test
-9	Radio block echo test starting with Tx
-10	Radio block echo test starting with Rx
-11	Radio packet transmission test
-12	Radio packet reception test
-13	Radio packet reception test in non-blocking mode
+ 0	   File bulk transmission
+ 1	   File bulk reception
+ 2	   KISS TNC
+ 3	   SLIP TNC
+ 4	   USB echo
+ 5	   Radio status
+ 6	   Radio init
+ 7	   Radio block transmission test
+ 8	   Radio block reception test
+ 9	   Radio block echo test starting with Tx
+10	   Radio block echo test starting with Rx
+11	   Radio packet transmission test
+12	   Radio packet reception test
+13	   Radio packet reception test in non-blocking mode
 </code></pre>
 
 #AX.25/KISS operation

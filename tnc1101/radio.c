@@ -106,9 +106,9 @@ static uint8_t  crc_check(uint8_t *block);
 // Calculate frequency word FREQ[23..0]
 uint32_t get_freq_word(arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
-{
+{    
     uint64_t res; // calculate on 64 bits to save precision
-    res = ((uint64_t) (arguments->freq_hz) * (uint64_t) (1<<16)) / ((uint64_t) (F_XTAL_MHZ * 1000000ULL));
+    res = ((uint64_t) (((double)arguments->freq_hz)*(1.0 - arguments->freq_offset_ppm*1e-6)) * (uint64_t) (1<<16)) / ((uint64_t) (F_XTAL_MHZ * 1000000ULL));
     return (uint32_t) res;
 }
 
@@ -562,7 +562,7 @@ void print_radio_status(serial_t *serial_parms, arguments_t *arguments)
 
         fprintf(stderr, "Part number ...........: %d\n", regs[0]);
         fprintf(stderr, "Version ...............: %d\n", regs[1]);
-        fprintf(stderr, "Freq offset estimate ..: %d\n", regs[2]);
+        fprintf(stderr, "Freq offset estimate ..: %d\n", (signed char) regs[2]);
         fprintf(stderr, "CRC OK ................: %d\n", ((regs[3] & 0x80)>>7));
         fprintf(stderr, "LQI ...................: %d\n", regs[3] & 0x7F);
         fprintf(stderr, "RSSI ..................: %.1f dBm\n", rssi_dbm(regs[4]));

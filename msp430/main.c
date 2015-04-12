@@ -389,6 +389,8 @@ void __attribute__ ((interrupt(PORT1_VECTOR))) PORT1_ISR (void)
                         dataBuffer[1] = (uint8_t) MSP430_BLOCK_TYPE_RX;
                         dataBuffer[2] += 2; // + RSSI + LQI
                         returnedDataBuffer = &dataBuffer[1];
+                        // frequency compensation
+                        //freq_compensate();
                     }
                     else // RX FIFO OVERFLOW or not empty => problem
                     {
@@ -491,6 +493,7 @@ void main (void)
     DELAY_US(5000);        // 5ms delay to compensate for time to startup between MSP430 and CC1100/2500 
     init_radio_spi();      // Initialize SPI comm with radio module
     init_leds();
+    init_freq_offset();    // initialize frequency offset compensation
 
     P1IE  = 0;
     P1IFG = 0;

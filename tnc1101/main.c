@@ -99,6 +99,7 @@ static struct argp_option options[] = {
     {"fec",  'F', 0, 0, "Activate FEC (default off)"},
     {"whitening",  'W', 0, 0, "Activate whitening (default off)"},
     {"frequency",  'f', "FREQUENCY_HZ", 0, "Frequency in Hz (default: 433600000)"},
+    {"offset-ppb",  'o', "FREQUENCY_OFFSET", 0, "Frequency offset in ppb from nominal (default: 0)"},
     {"if-frequency",  'I', "IF_FREQUENCY_HZ", 0, "Intermediate frequency in Hz (default: 310000)"},
     {"packet-length",  'p', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
     {"large-packet-length",  'P', "LARGE_PACKET_LENGTH", 0, "Large packet length (>255 bytes) for packet test only (default: 480)"},
@@ -197,6 +198,7 @@ static void init_args(arguments_t *arguments)
     arguments->rate_skew = 1.0;
     arguments->block_delay = 10000;
     arguments->modulation_index = 0.5;
+    arguments->freq_offset_ppm = 0.0;
     arguments->freq_hz = 433600000;
     arguments->if_freq_hz = 310000;
     arguments->packet_length = 250;
@@ -320,6 +322,7 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Rate skew ...........: %.2f\n", arguments->rate_skew);
     fprintf(stderr, "Block delay .........: %.2f ms\n", arguments->block_delay / 1000.0);
     fprintf(stderr, "Modulation index ....: %.2f\n", arguments->modulation_index);
+    fprintf(stderr, "Frequency offset ....: %.2lf ppm\n", arguments->freq_offset_ppm);
     fprintf(stderr, "Frequency ...........: %d Hz\n", arguments->freq_hz);
     fprintf(stderr, "Packet length .......: %d bytes\n", arguments->packet_length);
     fprintf(stderr, ">255 pkt len (test) .: %d bytes\n", arguments->large_packet_length);
@@ -550,6 +553,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         // Modulation index
         case 'm':
             arguments->modulation_index = atof(arg);
+            break;
+        // Frequency offset in ppb from nominal
+        case 'o':
+            arguments->freq_offset_ppm = atof(arg);
             break;
         // Rate skew multiplier
         case 'w':

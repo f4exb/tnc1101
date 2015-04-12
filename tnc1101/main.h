@@ -86,6 +86,7 @@ typedef struct arguments_s {
     rate_t             rate;                 // Data rate (Baud)
     float              rate_skew;            // Data rate skew multiplier from nominal
     float              modulation_index;     // Modulation index
+    double             freq_offset_ppm;      // Frequency offset compensation in ppm
     uint32_t           freq_hz;              // Frequency in Hz
     uint32_t           if_freq_hz;           // Intermediate frequency in Hz
     uint8_t            packet_length;        // Fixed packet length

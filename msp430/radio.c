@@ -13,6 +13,7 @@
 static uint8_t bytes_remaining;
 static uint8_t bytes_processed;
 static uint8_t *pDataBlock;
+static signed char frequency_offset_accumulator;
 
 // ------------------------------------------------------------------------------------------------
 // Initialize SPI radio interface
@@ -29,6 +30,14 @@ void reset_radio()
 // ------------------------------------------------------------------------------------------------
 {
     TI_CC_SPIStrobe(TI_CCxxx0_SRES);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Initialize frequency offset compensation accumulation
+void init_freq_offset()
+// ------------------------------------------------------------------------------------------------
+{
+    frequency_offset_accumulator = 0; 
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -213,7 +222,7 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     //   1 (01): ±BW CHAN /8
     //   2 (10): ±BW CHAN /4
     //   3 (11): ±BW CHAN /2
-    TI_CC_SPIWriteReg(TI_CCxxx0_FOCCFG,   0x1D); // Freq Offset Compens. Config
+    TI_CC_SPIWriteReg(TI_CCxxx0_FOCCFG,   0x1F); // Freq Offset Compens. Config
 
     // BSCFG:Bit Synchronization Configuration
     // o bits 7:6: BS_PRE_KI: Clock recovery loop integral gain before sync word
@@ -347,6 +356,16 @@ void init_radio(msp430_radio_parms_t *radio_parms)
 
     // TEST0: Various test settings. The value to write in this field is given by the SmartRF Studio software.
     TI_CC_SPIWriteReg(TI_CCxxx0_TEST0,    0x09); // Various test settings.
+}
+
+// ------------------------------------------------------------------------------------------------
+// Compensate for frequency offset by accumulating the frequency offset read from TI_CCxxx0_FREQEST
+// register and writing the resulting value to CCxxx0_FSCTRL0
+void freq_compensate()
+// ------------------------------------------------------------------------------------------------
+{
+    frequency_offset_accumulator += (signed char) TI_CC_SPIReadStatus(TI_CCxxx0_FREQEST);
+    TI_CC_SPIWriteReg(TI_CCxxx0_FSCTRL0, (uint8_t) frequency_offset_accumulator);
 }
 
 // ------------------------------------------------------------------------------------------------

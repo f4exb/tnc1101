@@ -250,8 +250,8 @@ Notes:
 Example:
   - `sudo nice -n -20 ./tnc1101 -U /dev/ttyACM0 -M5 -W -p250 --tnc-keyup-delay=10000 --tnc-serial-window=10000 -l10000 -R7 -W -D/var/slip/slip2 -v3 -t3`
 
-### Modulation index and deviation
-The program tries to find the closest value for the specified baud rate in binary symbol modulation (i.e. 2-FSK). For example at 600 baud rate and modulation index of 8 the deviation is 4761 Hz thus approachong 600*8 = 4800 Hz. As per CC1101 specifications a 4-FSK modulation falls in the same bandwidth. The following figure shows how 2-FSK and 4-FSK signals fit in the same bandwidth:
+### Modulation index and deviation (-m parameter)
+The program tries to find the closest value for the specified baud rate in binary symbol modulation (i.e. 2-FSK). For example at 600 baud rate and modulation index of 8 the deviation is 4761 Hz thus approachong 600*8 = 4800 Hz. As per CC1101 specifications a 4-FSK modulation fits in the same bandwidth. The following figure shows how 2-FSK and 4-FSK signals are arranged:
 <pre><code>
 2-FSK:
 0                 1

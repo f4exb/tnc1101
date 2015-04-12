@@ -71,7 +71,7 @@ This will set the priority to 0 and is the minimum you can obtain with the `nice
 
 ## Blocks and packets
 
-The CC1101 radio interface can handle blocks of up to 255 bytes in classical mode. There is an "infinite" mode we do not use here. The FIFO of the CC1101 us only 64 bytes long and the process of filling or fetching data for a larger block is handled with the MSP430. 
+The CC1101 radio interface can handle blocks of up to 255 bytes in classical mode. There is an "infinite" mode supported by the CC1101 but we do not use it here. The FIFO of the CC1101 is only 64 bytes long and the process of filling or fetching data for a larger block is handled with the MSP430. 
 
 Blocks are set as fixed size. This can create some waste at the expense of more simplicity in a code that is already complex. Moreover only fixed size blocks can benefit from the built-in forward error correction (FEC) of the CC1101. The first byte of the block is set with the size of actual useful data in the block that comes next. i.e. the counter itself is not part of the size.
 
@@ -245,10 +245,36 @@ Report bugs to <f4exb06@gmail.com>.
 
 Notes: 
   - variable length blocks supported by the CC1101 are not implemented.
-  - inter-block delay (-lparameter) should be set to 10ms at least (-l 10000). This is the default so you may also not specify the -l parameter at all.
+  - inter-block delay (-l parameter) should be set to 10ms at least (-l 10000). This is the default so you may also not specify the -l parameter at all.
 
 Example:
-  sudo nice -n -20 ./tnc1101 -U /dev/ttyACM0 -M5 -W -p250 --tnc-keyup-delay=10000 --tnc-serial-window=10000 -l10000 -R7 -W -D/var/slip/slip2 -v3 -t3
+  - `sudo nice -n -20 ./tnc1101 -U /dev/ttyACM0 -M5 -W -p250 --tnc-keyup-delay=10000 --tnc-serial-window=10000 -l10000 -R7 -W -D/var/slip/slip2 -v3 -t3`
+
+### Modulation index and deviation
+The program tries to find the closest value for the specified baud rate in binary symbol modulation (i.e. 2-FSK). For example at 600 baud rate and modulation index of 8 the deviation is 4761 Hz thus approachong 600*8 = 4800 Hz. As per CC1101 specifications a 4-FSK modulation falls in the same bandwidth. The following figure shows how 2-FSK and 4-FSK signals fit in the same bandwidth:
+<pre><code>
+2-FSK:
+0                 1
+^        f0       ^
+|        ^        |
+|        |        |
+|        |        |
+|        |        |
++--.--.--.--.--.--+
+|<------>|
+ deviation
+
+4-FSK:
+01    00    10    11
+^     ^  f0 ^     ^
+|     |  ^  |     |
+|     |  |  |     |
+|     |  |  |     |
+|     |  |  |     |
++--.--+--.--+--.--+
+|<--->|
+2/3 deviation
+</code></pre>
 
 ## Detailed options
 ### Verbosity level (-v)
@@ -323,7 +349,7 @@ The AX.25/KISS protocol is handled natively in Linux. You must have compiled you
 You must have a few packages installed. Make sure they are installed:
   - `sudo apt-get install ax25-apps ax25-node ax25-tools libax25 socat`
 
-Normally you would interface the TNC with a physical serial device and cable. However in this case the TNC is made of software (as seen from the host) so we will use virtual serial devices and a virtual serial link. On end of the link will be used by the AX.25/KISS layer and the other end will be used by the virtual TNC software. This virtual link is set-up thanks to the socat utility:
+In the old days you would interface the TNC with a physical serial device and cable. However in the present case the TNC is made of software (as seen from the host) so we will use virtual serial devices and a virtual serial link. On end of the link will be used by the AX.25/KISS layer and the other end will be used by the virtual TNC software. This virtual link is set-up thanks to the socat utility:
   - `sudo socat -d -d pty,link=/var/ax25/axp1,raw,echo=0 pty,link=/var/ax25/axp2,raw,echo=0 &`
 
 This creates two virtual serial devices linked via a virtual serial cable:

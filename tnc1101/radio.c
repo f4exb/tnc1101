@@ -490,7 +490,11 @@ void init_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments)
         radio_parms->packet_config = PKTLEN_FIXED;     // Use fixed packet length
     }
 
-    if (arguments->freq_hz < 400000000)
+    if (arguments->modulation == RADIO_MOD_OOK)
+    {
+        radio_parms->patable_freq_i = 4;   
+    }
+    else if (arguments->freq_hz < 400000000)
     {
         radio_parms->patable_freq_i = 0;
     }

@@ -261,7 +261,7 @@ The program tries to find the closest value for the specified baud rate in binar
 |        |        |
 |        |        |
 +--.--.--.--.--.--+
-|\<        \>|
+^________^
  deviation
 
 4-FSK:
@@ -272,7 +272,7 @@ The program tries to find the closest value for the specified baud rate in binar
 |     |  |  |     |
 |     |  |  |     |
 +--.--+--.--+--.--+
-|     |
+^_____^
 2/3 deviation
 </code></pre>
 

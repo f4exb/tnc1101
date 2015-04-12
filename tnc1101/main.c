@@ -80,6 +80,17 @@ uint8_t nb_preamble_bytes[] = {
     24
 };
 
+int power_values[] = {
+    -30,
+    -20,
+    -15,
+    -10,
+    0,
+    5,
+    7,
+    10
+};
+
 /***** Argp configuration start *****/
 
 const char *argp_program_version = "TNC1101 0.1";
@@ -101,6 +112,7 @@ static struct argp_option options[] = {
     {"frequency",  'f', "FREQUENCY_HZ", 0, "Frequency in Hz (default: 433600000)"},
     {"offset-ppb",  'o', "FREQUENCY_OFFSET", 0, "Frequency offset in ppb from nominal (default: 0)"},
     {"if-frequency",  'I', "IF_FREQUENCY_HZ", 0, "Intermediate frequency in Hz (default: 310000)"},
+    {"power-index",  'd', "POWER_INDEX", 0, "Power index, See long help (-H) option (default: 4 = 0dBm)"},
     {"packet-length",  'p', "PACKET_LENGTH", 0, "Packet length (fixed) or maximum packet length (variable) (default: 250)"},
     {"large-packet-length",  'P', "LARGE_PACKET_LENGTH", 0, "Large packet length (>255 bytes) for packet test only (default: 480)"},
     {"variable-length",  'V', 0, 0, "Variable packet length. Given packet length becomes maximum length (default off)"},
@@ -167,6 +179,14 @@ static void print_long_help()
         fprintf(stderr, "%2d\t%d\n", i, rate_values[i]);
     }
 
+    fprintf(stderr, "\nOutput power option -d values\n");    
+    fprintf(stderr, "Value:\tPower (dBm):\n");
+
+    for (i=0; i<NUM_POWER; i++)
+    {
+        fprintf(stderr, "%2d\t%3d\n", i, power_values[i]);
+    }
+
     fprintf(stderr, "\nTNC mode option -t values\n");
     fprintf(stderr, "Value:\tMode:\n");
 
@@ -199,6 +219,7 @@ static void init_args(arguments_t *arguments)
     arguments->block_delay = 10000;
     arguments->modulation_index = 0.5;
     arguments->freq_offset_ppm = 0.0;
+    arguments->power_index = 4;
     arguments->freq_hz = 433600000;
     arguments->if_freq_hz = 310000;
     arguments->packet_length = 250;
@@ -324,6 +345,7 @@ static void print_args(arguments_t *arguments)
     fprintf(stderr, "Modulation index ....: %.2f\n", arguments->modulation_index);
     fprintf(stderr, "Frequency offset ....: %.2lf ppm\n", arguments->freq_offset_ppm);
     fprintf(stderr, "Frequency ...........: %d Hz\n", arguments->freq_hz);
+    fprintf(stderr, "Output power ........: %d dBm\n", power_values[arguments->power_index]);
     fprintf(stderr, "Packet length .......: %d bytes\n", arguments->packet_length);
     fprintf(stderr, ">255 pkt len (test) .: %d bytes\n", arguments->large_packet_length);
     fprintf(stderr, "Variable length .....: %s\n", (arguments->variable_length ? "yes" : "no"));
@@ -410,6 +432,21 @@ static rate_t get_rate(uint8_t rate_index)
 }
 
 // ------------------------------------------------------------------------------------------------
+// Get output power from index     
+static rate_t get_power(uint8_t power_index)
+// ------------------------------------------------------------------------------------------------
+{
+    if (power_index < NUM_POWER)
+    {
+        return (power_t) power_index;
+    }
+    else
+    {
+        return POWER_10;
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
 // Option parser 
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 // ------------------------------------------------------------------------------------------------
@@ -467,6 +504,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
                 argp_usage(state);
             else
                 arguments->rate = get_rate(i8);
+            break;
+        // Output power
+        case 'd':
+            i8 = strtol(arg, &end, 10); 
+            if (*end)
+                argp_usage(state);
+            else
+                arguments->power_index = get_power(i8);
             break;
         // Radio link frequency
         case 'f':

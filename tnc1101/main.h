@@ -67,6 +67,20 @@ typedef enum preamble_e {
 
 extern uint8_t nb_preamble_bytes[];
 
+typedef enum power_e {
+    POWER_N30,
+    POWER_N20,
+    POWER_N15,
+    POWER_N10,
+    POWER_0,
+    POWER_5,
+    POWER_7,
+    POWER_10,
+    NUM_POWER
+} power_t;
+
+extern int power_values[];
+
 typedef struct arguments_s {
     uint8_t            verbose_level;        // Verbose level
     uint8_t            print_long_help;      // Print a long help and exit
@@ -87,6 +101,7 @@ typedef struct arguments_s {
     float              rate_skew;            // Data rate skew multiplier from nominal
     float              modulation_index;     // Modulation index
     double             freq_offset_ppm;      // Frequency offset compensation in ppm
+    power_t            power_index;          // Power index corresponding to PATABLE setting of CC1101 (see p.60 of documentation)
     uint32_t           freq_hz;              // Frequency in Hz
     uint32_t           if_freq_hz;           // Intermediate frequency in Hz
     uint8_t            packet_length;        // Fixed packet length

@@ -177,6 +177,8 @@ link.
                              transmission (default: '-' stdin or stdout
   -B, --tnc-serial-speed=SERIAL_SPEED
                              TNC Serial speed in Bauds (default : 9600)
+  -d, --power-index=POWER_INDEX   Power index, See long help (-H) option
+                             (default: 4 = 0dBm)
   -D, --tnc-serial-device=SERIAL_DEVICE
                              TNC Serial device, (default : /var/ax25/axp2)
   -f, --frequency=FREQUENCY_HZ   Frequency in Hz (default: 433600000)
@@ -320,6 +322,21 @@ Value: Scheme:
 </code></pre>
 
 Note: MSK does not seem to work too well at least with the default radio options.
+
+### Output power (-d)
+
+ <pre><code>
+Output power option -d values
+Value:  Power (dBm):
+ 0  -30
+ 1  -20
+ 2  -15
+ 3  -10
+ 4    0
+ 5    5
+ 6    7
+ 7   10
+</code></pre>
 
 ### TNC mode (-t)
  <pre><code>

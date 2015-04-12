@@ -15,6 +15,12 @@ static uint8_t bytes_processed;
 static uint8_t *pDataBlock;
 static signed char frequency_offset_accumulator;
 
+static const uint8_t patable[4][8] = {
+    {0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2},  // 315 MHz
+    {0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0},  // 433 MHz
+    {0x03, 0x0e, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2},  // 868 MHz
+    {0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0}}; // 915 MHz
+
 // ------------------------------------------------------------------------------------------------
 // Initialize SPI radio interface
 void init_radio_spi()
@@ -328,12 +334,13 @@ void init_radio(msp430_radio_parms_t *radio_parms)
     // o bits 5:4: LODIV_BUF_CURRENT_TX: Adjusts current TX LO buffer (input to PA). The value to use
     //   in this field is given by the SmartRF Studio software
     // o bit 3: not used
-    // o bits 1:0: PA_POWER: Selects PA power setting. This value is an index to the PATABLE, 
+    // o bits 2:0: PA_POWER: Selects PA power setting. This value is an index to the PATABLE, 
     //   which can be programmed with up to 8 different PA settings. In OOK/ASK mode, this selects the PATABLE
     //   index to use when transmitting a ‘1’. PATABLE index zero is used in OOK/ASK when transmitting a ‘0’. 
     //   The PATABLE settings from index ‘0’ to the PA_POWER value are used for ASK TX shaping, 
     //   and for power ramp-up/ramp-down at the start/end of transmission in all TX modulation formats.
-    TI_CC_SPIWriteReg(TI_CCxxx0_FREND0,   0x10); // Front end RX configuration.
+    reg_word = 0x10 + (radio_parms->patable_power_i & 0x07);
+    TI_CC_SPIWriteReg(TI_CCxxx0_FREND0, reg_word); // Front end RX configuration. 0dBm.
 
     // FSCAL3: Frequency Synthesizer Calibration
     // o bits 7:6: The value to write in this field before calibration is given by the SmartRF
@@ -356,6 +363,10 @@ void init_radio(msp430_radio_parms_t *radio_parms)
 
     // TEST0: Various test settings. The value to write in this field is given by the SmartRF Studio software.
     TI_CC_SPIWriteReg(TI_CCxxx0_TEST0,    0x09); // Various test settings.
+
+    // Write the PATABLE
+    TI_CC_SPIWriteBurstReg(TI_CCxxx0_PATABLE, patable[radio_parms->patable_freq_i], 8);
+
 }
 
 // ------------------------------------------------------------------------------------------------

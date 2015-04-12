@@ -469,15 +469,17 @@ void init_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments)
 // ------------------------------------------------------------------------------------------------
 {
     get_rate_words(arguments, radio_parms); // Bitrate
-    radio_parms->if_word       = get_if_word(arguments);    
-    radio_parms->freq_word     = get_freq_word(arguments);
-    radio_parms->mod_word      = get_mod_word(arguments->modulation);
-    radio_parms->sync_word     = SYNC_30_over_32;  // 30/32 sync word bits detected
-    radio_parms->chanspc_m     = 0;                // Do not use channel spacing for the moment defaulting to 0
-    radio_parms->chanspc_e     = 0;                // Do not use channel spacing for the moment defaulting to 0
-    radio_parms->fec_whitening = arguments->fec + 2*arguments->whitening;
-    radio_parms->packet_length = arguments->packet_length;  // Packet length
-    radio_parms->preamble_word = nb_preamble_bytes[(int) arguments->preamble]; // set number of preamble bytes
+    
+    radio_parms->if_word         = get_if_word(arguments);    
+    radio_parms->freq_word       = get_freq_word(arguments);
+    radio_parms->mod_word        = get_mod_word(arguments->modulation);
+    radio_parms->sync_word       = SYNC_30_over_32;  // 30/32 sync word bits detected
+    radio_parms->chanspc_m       = 0;                // Do not use channel spacing for the moment defaulting to 0
+    radio_parms->chanspc_e       = 0;                // Do not use channel spacing for the moment defaulting to 0
+    radio_parms->fec_whitening   = arguments->fec + 2*arguments->whitening;
+    radio_parms->packet_length   = arguments->packet_length;  // Packet length
+    radio_parms->preamble_word   = nb_preamble_bytes[(int) arguments->preamble]; // set number of preamble bytes
+    radio_parms->patable_power_i = arguments->power_index;
 
     if (arguments->variable_length)
     {
@@ -487,6 +489,24 @@ void init_radio_parms(msp430_radio_parms_t *radio_parms, arguments_t *arguments)
     {
         radio_parms->packet_config = PKTLEN_FIXED;     // Use fixed packet length
     }
+
+    if (arguments->freq_hz < 400000000)
+    {
+        radio_parms->patable_freq_i = 0;
+    }
+    else if (arguments->freq_hz < 700000000)
+    {
+        radio_parms->patable_freq_i = 1;   
+    }
+    else if (arguments->freq_hz < 900000000)
+    {
+        radio_parms->patable_freq_i = 2;   
+    }
+    else
+    {
+        radio_parms->patable_freq_i = 3;   
+    }
+
 }
 
 // ------------------------------------------------------------------------------------------------

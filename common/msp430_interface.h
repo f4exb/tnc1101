@@ -51,22 +51,24 @@ typedef enum packet_config_e
 
 struct msp430_radio_parms_s
 {
-	uint8_t  packet_length;  // PACKET_LENGTH      Packet length byte
-    uint8_t  packet_config;  // LENGTH_CONFIG[1:0] 2 bit packet length configuration
-    uint8_t  preamble_word;  // NUM_PREAMBLE[2:0]  3 bit preamble bytes setting
-    uint8_t  sync_word;      // SYNC_MODE[2:0]     3 bit synchronization mode
-    uint8_t  drate_e;        // DRATE_E[3:0]       4 bit data rate exponent
-    uint8_t  drate_m;        // DRATE_M[7:0]       8 bit data rate mantissa
-    uint8_t  deviat_e;       // DEVIATION_E[2:0]   3 bit deviation exponent
-    uint8_t  deviat_m;       // DEVIATION_M[2:0]   3 bit deviation mantissa
-    uint8_t  chanbw_e;       // CHANBW_E[1:0]      2 bit channel bandwidth exponent
-    uint8_t  chanbw_m;       // CHANBW_M[1:0]      2 bit channel bandwidth mantissa
-    uint8_t  chanspc_e;      // CHANSPC_E[1:0]     2 bit channel spacing exponent
-    uint8_t  chanspc_m;      // CHANSPC_M[7:0]     8 bit channel spacing mantissa
-    uint8_t  if_word;        // FREQ_IF[4:0]       5 bit intermediate frequency word
-    uint8_t  mod_word;       // MOD_FORMAT[2:0]    3 bit modulation format word
-    uint8_t  fec_whitening;  // FEC (bit 0) and Data Whitening (bit 1)
-    uint32_t freq_word;      // FREQ[23:0]        24 bit frequency word (FREQ0..FREQ2)
+	uint8_t  packet_length;   // PACKET_LENGTH      Packet length byte
+    uint8_t  packet_config;   // LENGTH_CONFIG[1:0] 2 bit packet length configuration
+    uint8_t  preamble_word;   // NUM_PREAMBLE[2:0]  3 bit preamble bytes setting
+    uint8_t  sync_word;       // SYNC_MODE[2:0]     3 bit synchronization mode
+    uint8_t  drate_e;         // DRATE_E[3:0]       4 bit data rate exponent
+    uint8_t  drate_m;         // DRATE_M[7:0]       8 bit data rate mantissa
+    uint8_t  deviat_e;        // DEVIATION_E[2:0]   3 bit deviation exponent
+    uint8_t  deviat_m;        // DEVIATION_M[2:0]   3 bit deviation mantissa
+    uint8_t  chanbw_e;        // CHANBW_E[1:0]      2 bit channel bandwidth exponent
+    uint8_t  chanbw_m;        // CHANBW_M[1:0]      2 bit channel bandwidth mantissa
+    uint8_t  chanspc_e;       // CHANSPC_E[1:0]     2 bit channel spacing exponent
+    uint8_t  chanspc_m;       // CHANSPC_M[7:0]     8 bit channel spacing mantissa
+    uint8_t  if_word;         // FREQ_IF[4:0]       5 bit intermediate frequency word
+    uint8_t  mod_word;        // MOD_FORMAT[2:0]    3 bit modulation format word
+    uint8_t  fec_whitening;   // FEC (bit 0) and Data Whitening (bit 1)
+    uint8_t  patable_freq_i;  // Frequency band index for the PATABLE
+    uint8_t  patable_power_i; // Power index in the PATABLE row 
+    uint32_t freq_word;       // FREQ[23:0]        24 bit frequency word (FREQ0..FREQ2)
 } __attribute__((packed));
 
 typedef struct msp430_radio_parms_s msp430_radio_parms_t;
